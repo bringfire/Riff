@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: oklch(0.17 0.012 255); color: oklch(0.93 0.008 90); font-family: 'Space Grotesk', Helvetica, sans-serif; }
+  a { color: oklch(0.75 0.13 205); text-decoration: none; }
+  a:hover { color: oklch(0.85 0.10 205); }
+  button { font-family: inherit; }
+  @keyframes dashflow { from { stroke-dashoffset: 240; } to { stroke-dashoffset: 0; } }
+  @keyframes softpulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; padding:28px 34px 40px; display:flex; flex-direction:column; gap:22px">
+
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; border-bottom:1px solid oklch(0.30 0.012 255); padding-bottom:18px">
+    <div style="display:flex; flex-direction:column; gap:8px">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:oklch(0.68 0.02 255)">AEC Tech Hackathon · workflow</div>
+      <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap">
+        <h1 style="margin:0; font-size:40px; font-weight:600; letter-spacing:-0.02em">RIFF <span style="color:oklch(0.60 0.02 255); font-weight:400">as an extension of</span> CHIRP</h1>
+      </div>
+      <div style="max-width:760px; font-size:15px; line-height:1.55; color:oklch(0.78 0.012 255); text-wrap:pretty">CHIRP builds the reasoning inside Grasshopper. RIFF takes that reasoning to a human, and feeds the human's decision back in — round after round, until the objectives are met.</div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.onClick }}" style="padding:10px 16px; border-radius:999px; font-size:13px; font-weight:500; letter-spacing:.01em; cursor:pointer; border:1px solid {{ t.border }}; background:{{ t.bg }}; color:{{ t.color }}; transition:all .18s">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ isConcept }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; gap:28px">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.68 0.02 255)">The whole idea in four moves</div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:18px">
+        <sc-for list="{{ conceptCards }}" as="c" hint-placeholder-count="4">
+          <div style="border:1px solid {{ c.border }}; background:{{ c.bg }}; border-radius:14px; padding:22px 22px 24px; display:flex; flex-direction:column; gap:12px; min-height:230px">
+            <div style="display:flex; align-items:center; justify-content:space-between">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; color:{{ c.accent }}">{{ c.tag }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:26px; color:oklch(0.38 0.012 255)">{{ c.num }}</div>
+            </div>
+            <div style="font-size:21px; font-weight:600; letter-spacing:-0.01em; line-height:1.2">{{ c.title }}</div>
+            <div style="font-size:14px; line-height:1.6; color:oklch(0.80 0.012 255); text-wrap:pretty">{{ c.body }}</div>
+            <div style="margin-top:auto; font-family:'IBM Plex Mono',monospace; font-size:11.5px; line-height:1.5; color:{{ c.accent }}">{{ c.plain }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="border:1px dashed oklch(0.42 0.03 340); border-radius:14px; padding:18px 22px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; background:oklch(0.20 0.014 340)">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:26px; color:oklch(0.72 0.14 340)">&#8592;</div>
+        <div style="display:flex; flex-direction:column; gap:4px">
+          <div style="font-size:16px; font-weight:600">Feedback loop</div>
+          <div style="font-size:14px; color:oklch(0.80 0.012 255); line-height:1.55">Every human decision returns to the RIFF broker as a new constraint, and CHIRP is called again. The loop keeps running until the objectives are satisfied and one best-fit solution is left standing.</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:14px; flex-wrap:wrap">
+        <sc-for list="{{ conceptStats }}" as="s" hint-placeholder-count="3">
+          <div style="flex:1 1 220px; border-left:2px solid {{ s.accent }}; padding:4px 0 4px 16px; display:flex; flex-direction:column; gap:6px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:oklch(0.66 0.02 255)">{{ s.label }}</div>
+            <div style="font-size:15px; line-height:1.5; color:oklch(0.88 0.01 255)">{{ s.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isFlow }}">
+    <div style="display:flex; flex-direction:column; gap:18px">
+
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 16px; border:1px solid oklch(0.29 0.012 255); border-radius:12px; background:oklch(0.20 0.012 255)">
+        <div style="display:flex; align-items:center; gap:8px">
+          <button onClick="{{ prevStep }}" style="width:36px; height:36px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer; font-size:15px">&#8592;</button>
+          <button onClick="{{ nextStep }}" style="width:36px; height:36px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer; font-size:15px">&#8594;</button>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:oklch(0.78 0.012 255); min-width:150px">{{ stepLabel }}</div>
+        </div>
+        <div style="width:1px; height:26px; background:oklch(0.30 0.012 255)"></div>
+        <button onClick="{{ toggleAll }}" style="padding:9px 14px; border-radius:8px; font-size:12.5px; cursor:pointer; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.88 0.01 255)">{{ allLabel }}</button>
+        <button onClick="{{ toggleFlowAnim }}" style="padding:9px 14px; border-radius:8px; font-size:12.5px; cursor:pointer; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.88 0.01 255)">{{ animLabel }}</button>
+        <div style="width:1px; height:26px; background:oklch(0.30 0.012 255)"></div>
+        <div style="display:flex; align-items:center; gap:8px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.64 0.02 255)">Zoom</div>
+          <button onClick="{{ zoomOut }}" style="width:32px; height:32px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer">&#8722;</button>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; width:46px; text-align:center; color:oklch(0.80 0.012 255)">{{ zoomLabel }}</div>
+          <button onClick="{{ zoomIn }}" style="width:32px; height:32px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer">+</button>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:16px; flex-wrap:wrap">
+          <sc-for list="{{ legend }}" as="l" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:7px">
+              <div style="width:10px; height:10px; border-radius:3px; background:{{ l.color }}"></div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.76 0.012 255)">{{ l.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div ref="{{ canvasWrap }}" style="width:100%">
+      <div style="width:100%; overflow:auto; border:1px solid oklch(0.27 0.012 255); border-radius:14px; background:oklch(0.185 0.012 255); padding:0">
+        <div style="width:{{ boxW }}px; height:{{ boxH }}px; position:relative">
+        <div style="width:1520px; height:900px; position:absolute; top:0; left:0; transform-origin:top left; transform:scale({{ scale }})">
+          <svg width="1520" height="900" viewBox="0 0 1520 900" style="position:absolute; inset:0; overflow:visible">
+            <defs>
+              <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="oklch(0.62 0.02 255)"></path>
+              </marker>
+            </defs>
+            <sc-for list="{{ paths }}" as="p" hint-placeholder-count="11">
+              <path d="{{ p.d }}" fill="none" stroke="{{ p.stroke }}" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#ah)" style="opacity:{{ p.opacity }}; transition:opacity .25s"></path>
+            </sc-for>
+            <sc-for list="{{ pulsePaths }}" as="p" hint-placeholder-count="11">
+              <path d="{{ p.d }}" fill="none" stroke="{{ p.pulse }}" stroke-width="3" stroke-linecap="round" style="stroke-dasharray:12 240; animation:dashflow {{ p.dur }}s linear infinite; animation-delay:{{ p.delay }}s; animation-play-state:{{ p.playState }}; opacity:{{ p.opacity }}"></path>
+            </sc-for>
+          </svg>
+
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+            <div style="position:absolute; left:{{ g.left }}px; top:{{ g.top }}px; width:{{ g.w }}px; height:{{ g.h }}px; border:1px dashed {{ g.border }}; border-radius:16px; pointer-events:none; opacity:{{ g.opacity }}; transition:opacity .25s">
+              <div style="position:absolute; top:-11px; left:18px; padding:1px 10px; background:oklch(0.185 0.012 255); font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:{{ g.border }}">{{ g.label }}</div>
+            </div>
+          </sc-for>
+
+          <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="11">
+            <div onClick="{{ n.onClick }}" style="position:absolute; left:{{ n.left }}px; top:{{ n.top }}px; width:{{ n.w }}px; height:{{ n.h }}px; border:1px solid {{ n.border }}; background:{{ n.bg }}; border-radius:12px; padding:13px 15px; display:flex; flex-direction:column; gap:5px; cursor:pointer; opacity:{{ n.opacity }}; box-shadow:{{ n.shadow }}; transition:opacity .25s, box-shadow .2s, border-color .2s">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.16em; color:{{ n.accent }}">{{ n.tag }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.50 0.012 255)">{{ n.num }}</div>
+              </div>
+              <div style="font-size:17.5px; font-weight:600; line-height:1.18; letter-spacing:-0.01em">{{ n.title }}</div>
+              <div style="font-size:13.5px; line-height:1.4; color:oklch(0.78 0.012 255); text-wrap:pretty">{{ n.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+        </div>
+      </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px">
+        <div style="border:1px solid {{ detail.border }}; background:{{ detail.bg }}; border-radius:14px; padding:22px 24px; display:flex; flex-direction:column; gap:14px; min-height:220px">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:{{ detail.accent }}">{{ detail.tag }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ detail.hint }}</div>
+          </div>
+          <div style="font-size:24px; font-weight:600; letter-spacing:-0.015em; line-height:1.15">{{ detail.title }}</div>
+          <div style="display:flex; flex-direction:column; gap:9px">
+            <sc-for list="{{ detail.bullets }}" as="b" hint-placeholder-count="3">
+              <div style="display:flex; gap:11px; align-items:flex-start">
+                <div style="width:5px; height:5px; border-radius:2px; background:{{ detail.accent }}; margin-top:8px; flex:none"></div>
+                <div style="font-size:14.5px; line-height:1.55; color:oklch(0.88 0.01 255); text-wrap:pretty">{{ b }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ showPlain }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:auto; padding-top:14px; border-top:1px solid oklch(0.30 0.012 255); font-size:14px; line-height:1.55; color:oklch(0.82 0.012 255)"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.62 0.02 255)">In plain terms &nbsp;</span>{{ detail.plain }}</div>
+          </sc-if>
+        </div>
+
+        <div style="border:1px solid oklch(0.28 0.012 255); background:oklch(0.20 0.012 255); border-radius:14px; padding:22px 24px; display:flex; flex-direction:column; gap:16px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:oklch(0.64 0.02 255)">Data on the wire</div>
+          <sc-for list="{{ detail.io }}" as="row" hint-placeholder-count="3">
+            <div style="display:flex; flex-direction:column; gap:5px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.58 0.012 255)">{{ row.k }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.5; color:oklch(0.88 0.01 255); text-wrap:pretty">{{ row.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isDev }}">
+    <div style="display:flex; flex-direction:column; gap:22px">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.68 0.02 255)">How the team ships it</div>
+        <div style="font-size:15px; line-height:1.55; color:oklch(0.80 0.012 255); max-width:720px">This is team process, not product behaviour. It runs alongside the flow on the previous tab.</div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px">
+        <sc-for list="{{ devSteps }}" as="d" hint-placeholder-count="9">
+          <div style="border:1px solid oklch(0.29 0.012 255); background:oklch(0.205 0.012 255); border-radius:12px; padding:18px 20px; display:flex; flex-direction:column; gap:10px">
+            <div style="display:flex; align-items:center; gap:10px">
+              <div style="width:26px; height:26px; border-radius:7px; border:1px solid oklch(0.40 0.05 205); color:oklch(0.75 0.13 205); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:12px">{{ d.n }}</div>
+              <div style="font-size:16px; font-weight:600; line-height:1.2">{{ d.title }}</div>
+            </div>
+            <div style="font-size:13.5px; line-height:1.55; color:oklch(0.79 0.012 255); text-wrap:pretty">{{ d.body }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.62 0.02 255)">{{ d.where }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isRoadmap }}">
+    <div style="display:flex; flex-direction:column; gap:22px">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.68 0.02 255)">Build order</div>
+        <div style="font-size:15px; line-height:1.55; color:oklch(0.80 0.012 255); max-width:760px">Reconstructed from your brief and sketches. Send me the architecture &amp; roadmap document and I will replace these with its exact phases and names.</div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <sc-for list="{{ phases }}" as="p" hint-placeholder-count="4">
+          <div style="display:grid; grid-template-columns:110px minmax(0,1fr) minmax(0,1fr); gap:22px; align-items:start; border:1px solid oklch(0.28 0.012 255); border-left:3px solid {{ p.accent }}; background:oklch(0.20 0.012 255); border-radius:12px; padding:20px 24px">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; color:{{ p.accent }}">{{ p.tag }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ p.state }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:19px; font-weight:600; letter-spacing:-0.01em">{{ p.title }}</div>
+              <div style="font-size:14px; line-height:1.55; color:oklch(0.80 0.012 255); text-wrap:pretty">{{ p.body }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <sc-for list="{{ p.items }}" as="i" hint-placeholder-count="3">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.5; color:oklch(0.84 0.01 255)">{{ i }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="margin-top:auto; padding-top:20px; border-top:1px solid oklch(0.26 0.012 255); font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; color:oklch(0.56 0.012 255)">Terminology taken from your two sketches and brief. Attach the architecture &amp; roadmap doc to lock exact names.</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showPlainLanguage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Presentation&quot;},&quot;pulseSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:3.4,&quot;min&quot;:1.2,&quot;max&quot;:8,&quot;step&quot;:0.2,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Presentation&quot;}}">
+const C = {
+  chirp: 'oklch(0.75 0.13 205)',
+  riff: 'oklch(0.78 0.13 75)',
+  human: 'oklch(0.72 0.14 340)',
+  out: 'oklch(0.78 0.13 150)',
+  input: 'oklch(0.72 0.02 255)'
+};
+const TINT = {
+  chirp: 'oklch(0.215 0.028 205)',
+  riff: 'oklch(0.215 0.028 75)',
+  human: 'oklch(0.215 0.030 340)',
+  out: 'oklch(0.215 0.028 150)',
+  input: 'oklch(0.215 0.012 255)'
+};
+
+const NODES = [
+  { id: 'brief', kind: 'input', left: 40, top: 110, w: 200, h: 120, num: '01', tag: 'HUMAN INPUT', title: 'The brief', sub: 'Objectives, parameters, conditions — written in words',
+    bullets: ['A person states what the design must achieve: site limits, targets, hard rules.', 'Nothing is drawn yet. This is intent, not geometry.', 'The brief also fixes what counts as success, which is what the loop later tests against.'],
+    plain: 'Someone says what they want, in ordinary language.',
+    io: [{ k: 'out', v: 'brief text + objectives' }, { k: 'to', v: 'LLM interpreter' }] },
+  { id: 'llm', kind: 'input', left: 280, top: 110, w: 180, h: 120, num: '02', tag: 'TRANSLATION', title: 'LLM reads it', sub: 'Brief → parameters + conditions',
+    bullets: ['The language model turns prose into structured parameters and constraints.', 'Ambiguity gets resolved here, or flagged back to the author.', 'Output is a machine-readable problem statement CHIRP can act on.'],
+    plain: 'The words get turned into numbers and rules a computer can use.',
+    io: [{ k: 'in', v: 'brief text' }, { k: 'out', v: 'parameters, conditions' }] },
+  { id: 'chirp', kind: 'chirp', left: 500, top: 110, w: 240, h: 120, num: '03', tag: 'CHIRP', title: 'Multi-agent logic', sub: 'Preset inputs → agent logic → preset outputs, inside Grasshopper',
+    bullets: ['Agents live inside Grasshopper as components with fixed input and output sockets.', 'The sockets are agreed up front; the logic between them is what each agent decides.', 'Because the interface is preset, agents can be swapped or chained without rewiring the definition.'],
+    plain: 'Small automated specialists plug into the model like sockets on a wall — same plug shape every time, different work inside.',
+    io: [{ k: 'in', v: 'parameters, conditions' }, { k: 'runs in', v: 'Grasshopper + Rhino' }, { k: 'out', v: 'geometry + reasoning' }] },
+  { id: 'components', kind: 'chirp', left: 780, top: 110, w: 220, h: 120, num: '04', tag: 'CHIRP OUTPUT', title: 'Components with reasoning', sub: 'Each result carries the why behind it',
+    bullets: ['Every generated option ships with the reasoning that produced it.', 'That reasoning is the payload RIFF cares about, not just the geometry.', 'Without it, a reviewer would only see a shape and no argument for it.'],
+    plain: 'Each option comes with its own explanation attached.',
+    io: [{ k: 'out', v: 'option + reasoning trace' }, { k: 'to', v: 'RIFF parser' }] },
+  { id: 'parser', kind: 'riff', left: 1040, top: 110, w: 200, h: 120, num: '05', tag: 'RIFF', title: 'Parse + package', sub: 'RIFF analyses the output and packages it for a person',
+    bullets: ['RIFF reads CHIRP\u2019s output as a parser: it knows the shape of the reasoning.', 'It packages option, reasoning and context into something reviewable.', 'This is the boundary where the work leaves Grasshopper.'],
+    plain: 'RIFF wraps the machine\u2019s answer into a neat parcel a human can read.',
+    io: [{ k: 'in', v: 'components + reasoning' }, { k: 'out', v: 'review package' }] },
+  { id: 'web', kind: 'riff', left: 1280, top: 110, w: 200, h: 120, num: '06', tag: 'TRANSPORT', title: 'Web server', sub: 'Pushed over a WebSocket, surfaced as a web link',
+    bullets: ['A WebSocket keeps the session live in both directions.', 'The reviewer gets a plain web link — no Rhino, no install.', 'Anyone with the link can review, wherever they are.'],
+    plain: 'The parcel appears on a web page you can open on your phone.',
+    io: [{ k: 'channel', v: 'WebSocket' }, { k: 'surface', v: 'web link' }] },
+  { id: 'human', kind: 'human', left: 1280, top: 380, w: 200, h: 120, num: '07', tag: 'HUMAN', title: 'Accept · Reject · Let go', sub: 'The person judges each option and says why',
+    bullets: ['Three moves: accept it, reject it, or let it go without a verdict.', 'Rejections can carry a comment, which becomes a constraint downstream.', 'Judgement stays with the human; the machine keeps the bookkeeping.'],
+    plain: 'A person says yes, no, or skip.',
+    io: [{ k: 'in', v: 'review package' }, { k: 'out', v: 'decisions + comments' }] },
+  { id: 'broker', kind: 'riff', left: 1040, top: 560, w: 200, h: 120, num: '08', tag: 'RIFF BROKER', title: 'Broker / component bus', sub: 'Decisions come back and become constraints',
+    bullets: ['The broker is the switchboard: it holds state between rounds.', 'Accepted options narrow the search; rejections rule regions out.', 'It decides what CHIRP should be asked next, and with what bounds.'],
+    plain: 'A switchboard that remembers every yes and no and uses them to sharpen the next try.',
+    io: [{ k: 'in', v: 'human decisions' }, { k: 'holds', v: 'constraints, history' }, { k: 'out', v: 'next-round instruction' }] },
+  { id: 'rerun', kind: 'chirp', left: 500, top: 560, w: 240, h: 120, num: '09', tag: 'CHIRP AGAIN', title: 'CHIRP is called again', sub: 'Same agents, tighter bounds',
+    bullets: ['The broker calls CHIRP with the updated constraint set.', 'Agents regenerate inside the narrowed space.', 'Nothing is rewired — only the inputs change.'],
+    plain: 'The machine has another go, now knowing what you did not like.',
+    io: [{ k: 'in', v: 'constraints + history' }, { k: 'out', v: 'new generation' }] },
+  { id: 'check', kind: 'human', left: 780, top: 740, w: 220, h: 110, num: '10', tag: 'GATE', title: 'Objectives met?', sub: 'No → loop again · Yes → converge',
+    bullets: ['Each round is measured against the objectives set in the brief.', 'If gaps remain, the loop runs again.', 'The number of rounds is not fixed; convergence decides it.'],
+    plain: 'Check the scoreboard. Not there yet? Go round again.',
+    io: [{ k: 'tests', v: 'objectives from brief' }, { k: 'branches', v: 'loop / finish' }] },
+  { id: 'best', kind: 'out', left: 1240, top: 740, w: 240, h: 110, num: '11', tag: 'RESULT', title: 'Best-fit solution', sub: 'Converged option with the full decision trail behind it',
+    bullets: ['The surviving option satisfies the stated objectives.', 'Every accept and reject that shaped it is on record.', 'The trail is the deliverable as much as the geometry is.'],
+    plain: 'One answer everyone agreed to, with the receipts for how you got there.',
+    io: [{ k: 'out', v: 'solution + audit trail' }] }
+];
+
+const PATHS = [
+  { d: 'M240,170 H272', from: 'brief', to: 'llm' },
+  { d: 'M460,170 H492', from: 'llm', to: 'chirp' },
+  { d: 'M740,170 H772', from: 'chirp', to: 'components' },
+  { d: 'M1000,170 H1032', from: 'components', to: 'parser' },
+  { d: 'M1240,170 H1272', from: 'parser', to: 'web' },
+  { d: 'M1380,230 V372', from: 'web', to: 'human' },
+  { d: 'M1380,500 V620 H1248', from: 'human', to: 'broker' },
+  { d: 'M1140,680 V795 H1008', from: 'broker', to: 'check' },
+  { d: 'M780,795 H750 V620 H748', from: 'check', to: 'rerun' },
+  { d: 'M620,560 V238', from: 'rerun', to: 'chirp' },
+  { d: 'M1000,795 H1232', from: 'check', to: 'best' }
+];
+
+const GROUPS = [
+  { label: 'Human intent', left: 20, top: 84, w: 460, h: 172, kind: 'input' },
+  { label: 'CHIRP · Grasshopper', left: 482, top: 84, w: 538, h: 172, kind: 'chirp' },
+  { label: 'RIFF · web + broker', left: 1022, top: 84, w: 478, h: 620, kind: 'riff' }
+];
+
+const DEV = [
+  { n: '01', title: 'Shared channel', body: 'A group is set up so everyone posts in one place and nothing is decided in private DMs.', where: 'Discord' },
+  { n: '02', title: 'Install Git', body: 'Every machine gets Git so it can talk to the repository.', where: 'Local PC' },
+  { n: '03', title: 'Clone the repo', body: 'Clone the repository into a working folder on your own machine.', where: 'Claude Code / terminal' },
+  { n: '04', title: 'Repository is the truth', body: 'Whatever is in the GitHub repo is the project. Your folder is a mirror of it.', where: 'GitHub' },
+  { n: '05', title: 'Work locally', body: 'Make changes in your local copy, where breaking things costs nothing.', where: 'Desktop' },
+  { n: '06', title: 'Commit', body: 'Group your changes into commits with a message explaining the intent.', where: 'Git' },
+  { n: '07', title: 'Open a pull request', body: 'The PR is the formal mechanism for proposing your change to the team.', where: 'GitHub' },
+  { n: '08', title: 'Review', body: 'A teammate reads it and says yes or no, with comments. Same shape as the RIFF loop, run by people.', where: 'GitHub' },
+  { n: '09', title: 'Merge and pull', body: 'Approved work merges into the repo; everyone pulls and is back in sync.', where: 'GitHub' }
+];
+
+const PHASES = [
+  { tag: 'PHASE 01', state: 'foundation', accent: C.chirp, title: 'CHIRP: agents with preset sockets', body: 'Establish the contract first — fixed input and output sockets for every agent inside Grasshopper, so the logic in between can change freely.', items: ['Preset I/O schema', 'Agent scaffold in GH', 'Rhino geometry pipeline'] },
+  { tag: 'PHASE 02', state: 'foundation', accent: C.chirp, title: 'Reasoning as a first-class output', body: 'Components stop emitting geometry alone. Each result carries a machine-readable trace of why it was produced.', items: ['Reasoning payload format', 'Trace per component', 'LLM brief → parameters'] },
+  { tag: 'PHASE 03', state: 'the RIFF layer', accent: C.riff, title: 'RIFF: parse, package, publish', body: 'RIFF reads CHIRP output, packages it for review, and pushes it over a WebSocket to a web surface a non-Rhino user can open.', items: ['Parser + packager', 'WebSocket transport', 'Review web app', 'Accept / reject / defer'] },
+  { tag: 'PHASE 04', state: 'closing the loop', accent: C.human, title: 'Broker and convergence', body: 'Decisions return to the broker, become constraints, and call CHIRP again. The loop runs until the objectives are met.', items: ['Broker state + history', 'Constraint accumulation', 'Objective scoring', 'Audit trail on the result'] }
+];
+
+class Component extends DCLogic {
+  state = { view: 'concept', step: 0, selected: 'chirp', animate: true, zoom: 1, fit: 1 };
+
+  setWrap = el => {
+    if (el === this._wrap) return;
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    this._wrap = el;
+    if (!el) return;
+    if (typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(() => this.measure());
+      this._ro.observe(el);
+    }
+    this.measure();
+  };
+
+  componentWillUnmount() { if (this._ro) this._ro.disconnect(); }
+
+  measure() {
+    if (!this._wrap) return;
+    const w = this._wrap.clientWidth;
+    if (!w) return;
+    const fit = Math.min(1, Math.max(0.34, (w - 4) / 1520));
+    if (Math.abs(fit - this.state.fit) > 0.01) this.setState({ fit });
+  }
+
+  setView(v) { this.setState({ view: v }); setTimeout(() => this.measure(), 30); }
+
+  activeIds() {
+    const s = this.state.step;
+    if (s === 0) return null;
+    return NODES.slice(0, s).map(n => n.id);
+  }
+
+  renderVals() {
+    const st = this.state;
+    const plainOn = this.props.showPlainLanguage ?? true;
+    const speed = this.props.pulseSpeed ?? 3.4;
+    const active = this.activeIds();
+    const focusId = st.step === 0 ? null : NODES[st.step - 1].id;
+    const scale = Math.min(1.6, st.fit * st.zoom);
+
+    const tabDefs = [
+      ['concept', 'Concept'],
+      ['flow', 'Full flow'],
+      ['dev', 'Dev workflow'],
+      ['roadmap', 'Roadmap']
+    ];
+    const tabs = tabDefs.map(([id, label]) => {
+      const on = st.view === id;
+      return {
+        label, onClick: () => this.setView(id),
+        bg: on ? 'oklch(0.30 0.04 205)' : 'oklch(0.21 0.012 255)',
+        border: on ? 'oklch(0.52 0.09 205)' : 'oklch(0.32 0.012 255)',
+        color: on ? 'oklch(0.94 0.02 205)' : 'oklch(0.76 0.012 255)'
+      };
+    });
+
+    const nodes = NODES.map(n => {
+      const dim = active && active.indexOf(n.id) === -1;
+      const isFocus = n.id === focusId;
+      const isSel = n.id === st.selected;
+      return {
+        id: n.id, left: n.left, top: n.top, w: n.w, h: n.h,
+        num: n.num, tag: n.tag, title: n.title, sub: n.sub,
+        accent: C[n.kind], bg: TINT[n.kind],
+        border: isSel || isFocus ? C[n.kind] : 'oklch(0.33 0.012 255)',
+        opacity: dim ? 0.22 : 1,
+        shadow: isFocus ? '0 0 0 3px oklch(0.30 0.05 255)' : isSel ? '0 0 0 1px ' + C[n.kind] : 'none',
+        onClick: () => this.setState({ selected: n.id })
+      };
+    });
+
+    const pathVis = PATHS.map(p => {
+      const dim = active && (active.indexOf(p.from) === -1 || active.indexOf(p.to) === -1);
+      return { d: p.d, stroke: 'oklch(0.46 0.012 255)', opacity: dim ? 0.15 : 1 };
+    });
+    const pulsePaths = PATHS.map((p, i) => {
+      const dim = active && (active.indexOf(p.from) === -1 || active.indexOf(p.to) === -1);
+      return {
+        d: p.d, pulse: C[NODES.find(n => n.id === p.from).kind],
+        dur: speed, delay: (i * 0.28).toFixed(2),
+        playState: st.animate ? 'running' : 'paused',
+        opacity: dim ? 0 : st.animate ? 0.9 : 0
+      };
+    });
+
+    const groups = GROUPS.map(g => ({
+      label: g.label, left: g.left, top: g.top, w: g.w, h: g.h,
+      border: 'oklch(0.36 0.03 255)',
+      opacity: 1
+    }));
+
+    const d = NODES.find(n => n.id === st.selected) || NODES[0];
+
+    const conceptCards = [
+      { num: '01', tag: 'THE MODEL', title: 'Agents inside Grasshopper', body: 'CHIRP puts small automated specialists into the Grasshopper definition. Their input and output sockets are agreed in advance; the logic between them is theirs to decide.', plain: 'preset in → logic → preset out', kind: 'chirp' },
+      { num: '02', tag: 'THE REASONING', title: 'Every option explains itself', body: 'A CHIRP component does not only hand back geometry. It hands back the reasoning that produced it, in a form another program can read.', plain: 'geometry + why', kind: 'chirp' },
+      { num: '03', tag: 'RIFF', title: 'Take it to a human', body: 'RIFF parses that reasoning, packages it, and pushes it to a web server. A person opens a link and accepts, rejects, or lets it go.', plain: 'websocket → web link → verdict', kind: 'riff' },
+      { num: '04', tag: 'THE LOOP', title: 'Feed the decision back', body: 'Decisions return to the RIFF broker, become constraints, and call CHIRP again. Round after round until the objectives are met and one best-fit solution remains.', plain: 'until objectives met', kind: 'human' }
+    ].map(c => ({ ...c, accent: C[c.kind], bg: TINT[c.kind], border: 'oklch(0.31 0.02 255)' }));
+
+    const conceptStats = [
+      { label: 'What CHIRP is', value: 'Multi-agent logic in Grasshopper, wrapped in preset inputs and outputs.', accent: C.chirp },
+      { label: 'What RIFF adds', value: 'A broker, a parser and a web surface that put a human in the loop.', accent: C.riff },
+      { label: 'What you get', value: 'A converged solution plus the record of every decision that shaped it.', accent: C.out }
+    ];
+
+    return {
+      isConcept: st.view === 'concept', isFlow: st.view === 'flow',
+      isDev: st.view === 'dev', isRoadmap: st.view === 'roadmap',
+      tabs, nodes, paths: pathVis, pulsePaths, groups,
+      conceptCards, conceptStats, devSteps: DEV, phases: PHASES,
+      showPlain: plainOn,
+      scale: scale.toFixed(3),
+      boxW: Math.round(1520 * scale),
+      boxH: Math.round(900 * scale),
+      zoomLabel: Math.round(st.zoom * 100) + '%',
+      zoomIn: () => this.setState(s => ({ zoom: Math.min(2, +(s.zoom + 0.15).toFixed(2)) })),
+      zoomOut: () => this.setState(s => ({ zoom: Math.max(0.5, +(s.zoom - 0.15).toFixed(2)) })),
+      stepLabel: st.step === 0 ? 'All 11 steps shown' : 'Step ' + st.step + ' of 11 · ' + NODES[st.step - 1].title,
+      allLabel: st.step === 0 ? 'Start step-through' : 'Show everything',
+      animLabel: st.animate ? 'Pause flow' : 'Play flow',
+      toggleAll: () => this.setState(s => ({ step: s.step === 0 ? 1 : 0, selected: s.step === 0 ? NODES[0].id : s.selected })),
+      toggleFlowAnim: () => this.setState(s => ({ animate: !s.animate })),
+      nextStep: () => this.setState(s => { const n = s.step >= 11 ? 1 : s.step + 1; return { step: n, selected: NODES[n - 1].id }; }),
+      prevStep: () => this.setState(s => { const n = s.step <= 1 ? 11 : s.step - 1; return { step: n, selected: NODES[n - 1].id }; }),
+      canvasWrap: this.setWrap,
+      legend: [
+        { label: 'Human', color: C.human }, { label: 'CHIRP', color: C.chirp },
+        { label: 'RIFF', color: C.riff }, { label: 'Result', color: C.out }
+      ],
+      detail: {
+        tag: d.tag, title: d.title, bullets: d.bullets, plain: d.plain, io: d.io,
+        accent: C[d.kind], bg: TINT[d.kind], border: 'oklch(0.33 0.02 255)',
+        hint: 'step ' + d.num + ' · click any box'
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>
