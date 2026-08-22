@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from chirp.adapter import ChirpAdapter
+from chirp.review import router as review_router
 from chirp.rook_tool import chirp_create
 from chirp.tracing import TraceLogger
 
@@ -110,6 +111,7 @@ async def _lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Chirp", version="0.1.0", lifespan=_lifespan)
+app.include_router(review_router)
 adapter = ChirpAdapter()
 tracer = TraceLogger()
 
