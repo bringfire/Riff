@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Chirp
+traces/
+.worktrees/
+
+# Environment
+.env
+Chirp_API_Key.txt
+
+# SDK reference (14MB binary)
+Grasshopper SDK.chm
