@@ -21,10 +21,23 @@
   var state = {
     reviews: [],          // pending packets currently shown
     selectedId: null,
+    noteForId: null,      // packet the text in the note box was written for
     decided: {},          // packet_id -> true, hides packets we have decided
     loadedOnce: false,
-    submitting: false
+    submitting: false,
+
+    /* Repaint guards. The reviewer reads and types while the poll runs, so a
+       pane is only rebuilt when its content actually changed. */
+    queueSig: null,       // signature of the queue as currently painted
+    renderedDetailId: null,
+
+    polling: false,       // a poll is in flight
+    pollSeq: 0,           // increments per poll
+    appliedSeq: 0         // highest poll already applied to the DOM
   };
+
+  // Queue buttons by packet_id, so selection and focus survive a quiet poll.
+  var queueButtons = {};
 
   // ---------- element handles ----------
 
@@ -120,6 +133,27 @@
     return state.reviews.filter(function (r) { return !state.decided[r.packet_id]; });
   }
 
+  /* What the queue currently shows. If this is unchanged, the DOM is left
+     alone: rebuilding it would remove the focused button and drop keyboard
+     focus to <body> every two seconds. */
+  function queueSignature(items) {
+    // Stringified rather than concatenated, so no field can spoof a boundary.
+    return JSON.stringify(items.map(function (r) {
+      var p = r.packet || {};
+      return [r.packet_id, p.role, p.stage, p.proposal, r.created_at];
+    }));
+  }
+
+  function markSelectedInQueue() {
+    Object.keys(queueButtons).forEach(function (id) {
+      if (id === state.selectedId) {
+        queueButtons[id].setAttribute("aria-current", "true");
+      } else {
+        queueButtons[id].removeAttribute("aria-current");
+      }
+    });
+  }
+
   function renderQueue() {
     var items = visibleReviews();
     el.queueCount.textContent = items.length;
@@ -134,6 +168,21 @@
     show(el.queueEmpty, items.length === 0);
     show(el.queueList, items.length > 0);
 
+    // Selection moves without a rebuild; only the queue's contents force one.
+    var sig = queueSignature(items);
+    if (sig === state.queueSig) {
+      markSelectedInQueue();
+      return;
+    }
+    state.queueSig = sig;
+
+    // A genuine rebuild must not strand a keyboard user mid-queue.
+    var focusedId = null;
+    if (document.activeElement && el.queueList.contains(document.activeElement)) {
+      focusedId = document.activeElement.getAttribute("data-packet-id");
+    }
+
+    queueButtons = {};
     el.queueList.textContent = "";
 
     items.forEach(function (r) {
@@ -142,9 +191,8 @@
 
       var btn = document.createElement("button");
       btn.type = "button";
-      if (r.packet_id === state.selectedId) {
-        btn.setAttribute("aria-current", "true");
-      }
+      btn.setAttribute("data-packet-id", r.packet_id);
+      queueButtons[r.packet_id] = btn;
 
       var roleRow = elem("div", "q-role");
       roleRow.appendChild(elem("span", null, p.role || "unknown role"));
@@ -160,6 +208,12 @@
       li.appendChild(btn);
       el.queueList.appendChild(li);
     });
+
+    markSelectedInQueue();
+
+    if (focusedId && queueButtons[focusedId]) {
+      queueButtons[focusedId].focus();
+    }
   }
 
   // ---------- detail rendering ----------
@@ -178,12 +232,19 @@
       show(el.detailEmpty, true);
       show(el.detail, false);
       el.detailId.textContent = "";
+      state.renderedDetailId = null;
       return;
     }
 
     show(el.detailEmpty, false);
     show(el.detail, true);
     el.detailId.textContent = r.packet_id;
+
+    /* A submitted packet is immutable, so the same packet_id always renders
+       the same content. Rebuilding it on every poll would throw away the
+       reader's scroll position and any text they had selected. */
+    if (state.renderedDetailId === r.packet_id) { return; }
+    state.renderedDetailId = r.packet_id;
 
     var p = r.packet || {};
     el.detail.textContent = "";
@@ -302,10 +363,19 @@
     for (var i = 0; i < btns.length; i++) { btns[i].disabled = disabled; }
   }
 
-  function select(id) {
+  /* The single place the selection changes. Every change clears the note and
+     records which packet the empty note now belongs to. A note written for
+     one packet must never follow the selection to another: decisions are
+     terminal and immutable, so a misattributed note cannot be taken back. */
+  function setSelection(id) {
     state.selectedId = id;
-    clearFormError();
+    state.noteForId = id;
     el.note.value = "";
+    clearFormError();
+  }
+
+  function select(id) {
+    setSelection(id);
     renderQueue();
     renderDetail();
     renderDecision();
@@ -317,14 +387,19 @@
     state.reviews = Array.isArray(list) ? list : [];
     state.loadedOnce = true;
 
-    // Drop a selection that the server no longer reports as pending.
+    // Drop a selection that the server no longer reports as pending. Say so
+    // out loud if that discards work, rather than silently moving the note.
     if (state.selectedId && !findReview(state.selectedId)) {
-      state.selectedId = null;
+      if (el.note.value.trim()) {
+        toast("error", "The packet you were reviewing left the queue. " +
+                       "Your unsent note was discarded.");
+      }
+      setSelection(null);
     }
     // Auto-select the first packet so the reviewer always has something open.
     if (!state.selectedId) {
       var vis = visibleReviews();
-      if (vis.length) { state.selectedId = vis[0].packet_id; }
+      if (vis.length) { setSelection(vis[0].packet_id); }
     }
 
     renderQueue();
@@ -332,18 +407,28 @@
     renderDecision();
   }
 
-  function loadMock() {
+  /* True when this response is the newest one seen. An older response that
+     arrives late must be dropped, not applied, or it reverts the queue. */
+  function isFreshest(seq) {
+    if (seq <= state.appliedSeq) { return false; }
+    state.appliedSeq = seq;
+    return true;
+  }
+
+  function loadMock(seq) {
     return fetch(MOCK_URL, { cache: "no-store" })
       .then(function (res) {
         if (!res.ok) { throw new Error("mock fixture returned " + res.status); }
         return res.json();
       })
       .then(function (data) {
+        if (!isFreshest(seq)) { return; }
         show(el.queueError, false);
         setConn("mock", "Mock fixture");
         applyReviews(data.reviews);
       })
       .catch(function (err) {
+        if (!isFreshest(seq)) { return; }
         setConn("error", "Mock failed");
         state.loadedOnce = true;
         el.queueError.textContent = "Could not load the mock fixture: " + err.message;
@@ -352,7 +437,7 @@
       });
   }
 
-  function loadLive() {
+  function loadLive(seq) {
     return fetch(API_REVIEWS + "?status=pending", {
       headers: { "Accept": "application/json" },
       cache: "no-store"
@@ -362,11 +447,13 @@
         return res.json();
       })
       .then(function (data) {
+        if (!isFreshest(seq)) { return; }
         show(el.queueError, false);
         setConn("live", "Live · polling every 2s");
         applyReviews(data.reviews);
       })
       .catch(function (err) {
+        if (!isFreshest(seq)) { return; }
         setConn("error", "Disconnected");
         state.loadedOnce = true;
         el.queueError.textContent =
@@ -377,7 +464,25 @@
       });
   }
 
-  var load = IS_MOCK ? loadMock : loadLive;
+  var fetchReviews = IS_MOCK ? loadMock : loadLive;
+
+  /* One poll in flight at a time. A slow backend must not let requests stack
+     up behind each other and land out of order. Always resolves. */
+  function load() {
+    if (state.polling) { return Promise.resolve(); }
+    state.polling = true;
+    return fetchReviews(++state.pollSeq).then(function () {
+      state.polling = false;
+    });
+  }
+
+  /* Chained rather than setInterval, so the next poll is scheduled from the
+     end of the previous one instead of firing into a busy client. */
+  function pollLoop() {
+    load().then(function () {
+      setTimeout(pollLoop, POLL_MS);
+    });
+  }
 
   // ---------- submitting a decision ----------
 
@@ -394,6 +499,13 @@
 
     if (!reviewer) {
       failForm("Enter your name before recording a decision.", el.reviewer);
+      return;
+    }
+    /* Belt and braces behind setSelection: refuse outright rather than record
+       one packet's note against another. This decision cannot be revised. */
+    if (note && state.noteForId !== id) {
+      failForm("This note was written for a different packet. " +
+               "Clear it and retype before deciding.", el.note);
       return;
     }
     if ((action === "request_correction" || action === "reject") && !note) {
@@ -416,10 +528,9 @@
     if (IS_MOCK) {
       setTimeout(function () {
         state.decided[id] = true;
-        state.selectedId = null;
+        setSelection(null);
         state.submitting = false;
         setButtonsDisabled(false);
-        el.note.value = "";
         toast("success", "Recorded " + label(action) + " (mock — nothing was sent).");
         applyReviews(state.reviews);
       }, 220);
@@ -454,8 +565,7 @@
       })
       .then(function () {
         state.decided[id] = true;
-        state.selectedId = null;
-        el.note.value = "";
+        setSelection(null);
         toast("success", "Recorded " + label(action) + ".");
         applyReviews(state.reviews);
         load();
@@ -501,6 +611,5 @@
   renderQueue();
   renderDetail();
   renderDecision();
-  load();
-  setInterval(load, POLL_MS);
+  pollLoop();
 })();
