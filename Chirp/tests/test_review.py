@@ -1,5 +1,8 @@
 """Observable API tests for the in-memory human-review round trip."""
 
+from copy import deepcopy
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -52,6 +55,33 @@ def test_create_review_returns_201_pending(valid_packet: dict[str, object]):
     assert body["status"] == "pending"
     assert body["packet"] == valid_packet
     assert body["decision"] is None
+
+
+@pytest.mark.parametrize(
+    ("target", "invalid_value"),
+    [
+        pytest.param("parameter", float("nan"), id="parameter-nan"),
+        pytest.param("payload", float("inf"), id="nested-payload-infinity"),
+    ],
+)
+def test_non_finite_packet_values_return_422(
+    valid_packet: dict[str, object],
+    target: str,
+    invalid_value: float,
+):
+    packet = deepcopy(valid_packet)
+    if target == "parameter":
+        packet["parameters"][0]["value"] = invalid_value
+    else:
+        packet["payload"] = {"nested": {"value": invalid_value}}
+
+    response = client.post(
+        "/reviews",
+        content=json.dumps(packet),
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_get_review_returns_submitted_packet(valid_packet: dict[str, object]):

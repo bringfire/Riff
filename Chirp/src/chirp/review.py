@@ -22,7 +22,10 @@ ReviewStatus = Literal[
 
 
 class ReviewParameter(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        allow_inf_nan=False,
+    )
 
     name: str
     value: JsonValue
@@ -39,7 +42,10 @@ class ReviewProvenance(BaseModel):
 
 
 class ReviewPacket(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        allow_inf_nan=False,
+    )
 
     stage: str
     role: str

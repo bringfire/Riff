@@ -11,7 +11,9 @@ from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 
@@ -114,6 +116,22 @@ app = FastAPI(title="Chirp", version="0.1.0", lifespan=_lifespan)
 app.include_router(review_router)
 adapter = ChirpAdapter()
 tracer = TraceLogger()
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+):
+    errors = exc.errors()
+    if not any(error.get("type") == "finite_number" for error in errors):
+        return await request_validation_exception_handler(request, exc)
+
+    sanitized_errors = [
+        {key: value for key, value in error.items() if key != "input"}
+        for error in errors
+    ]
+    return JSONResponse(status_code=422, content={"detail": sanitized_errors})
 
 
 class CallRequest(BaseModel):
