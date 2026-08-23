@@ -344,6 +344,10 @@ def test_presenter_preserves_all_git_tejal_views_and_about_content():
     assert "external LLM agent" in about.text
     assert "the round runs again" not in about.text
     assert "loop runs until every change is approved" not in about.text
+    for internal_view in ("Concept", "Full flow", "Dev workflow", "Roadmap"):
+        assert internal_view in about.text
+    assert "@keyframes dashflow" in about.text
+    assert "toggleFlowAnim" in about.text
 
 
 def test_riff_snapshot_routes_and_existing_routes_are_registered():
