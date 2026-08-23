@@ -1,12 +1,20 @@
 """Observable API tests for the in-memory human-review round trip."""
 
 from copy import deepcopy
+from datetime import datetime
 import json
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 
 from chirp.server import app
+from chirp.review import (
+    ReviewPacket,
+    create_review_batch,
+    read_review_batch,
+    read_review_batch_with_observed_at,
+)
 
 
 client = TestClient(app)
@@ -121,6 +129,39 @@ def test_accept_review_reports_accepted_without_mutating_packet(
     assert body["decision"]["decided_at"]
 
 
+def test_blank_reviewer_returns_422_without_committing_decision(
+    valid_packet: dict[str, object],
+):
+    created = client.post("/reviews", json=valid_packet)
+    packet_id = created.json()["packet_id"]
+
+    decision = client.post(
+        f"/reviews/{packet_id}/decision",
+        json={"action": "accept", "reviewer": "   "},
+    )
+    stored = client.get(f"/reviews/{packet_id}")
+
+    assert decision.status_code == 422
+    assert stored.status_code == 200
+    assert stored.json()["status"] == "pending"
+    assert stored.json()["decision"] is None
+
+
+def test_reviewer_attribution_is_trimmed_before_commit(
+    valid_packet: dict[str, object],
+):
+    created = client.post("/reviews", json=valid_packet)
+    packet_id = created.json()["packet_id"]
+
+    decision = client.post(
+        f"/reviews/{packet_id}/decision",
+        json={"action": "accept", "reviewer": "  Ada  "},
+    )
+
+    assert decision.status_code == 200
+    assert decision.json()["decision"]["reviewer"] == "Ada"
+
+
 @pytest.mark.parametrize(
     "decision_body",
     [
@@ -177,3 +218,110 @@ def test_unknown_packet_returns_404(operation: str):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Review packet not found"}
+
+
+def test_create_review_batch_commits_in_packet_order(valid_packet, monkeypatch):
+    ids = iter([
+        UUID("00000000-0000-0000-0000-000000000101"),
+        UUID("00000000-0000-0000-0000-000000000102"),
+    ])
+    monkeypatch.setattr("chirp.review.uuid4", lambda: next(ids))
+    packets = (
+        ReviewPacket.model_validate(valid_packet),
+        ReviewPacket.model_validate({
+            **valid_packet,
+            "provenance": {
+                **valid_packet["provenance"],
+                "component_id": "second-component",
+            },
+        }),
+    )
+    committed = []
+
+    result = create_review_batch(packets, lambda reviews: committed.append(reviews))
+
+    assert tuple(review.packet_id for review in result) == (
+        "00000000-0000-0000-0000-000000000101",
+        "00000000-0000-0000-0000-000000000102",
+    )
+    assert committed == [result]
+    assert all(review.status == "pending" for review in result)
+
+
+def test_create_review_batch_rolls_back_every_record_when_commit_fails(
+    valid_packet, monkeypatch
+):
+    packet_id = "00000000-0000-0000-0000-000000000103"
+    monkeypatch.setattr("chirp.review.uuid4", lambda: UUID(packet_id))
+
+    def fail(_reviews):
+        raise RuntimeError("publication failed")
+
+    with pytest.raises(RuntimeError, match="publication failed"):
+        create_review_batch(
+            (ReviewPacket.model_validate(valid_packet),),
+            fail,
+        )
+
+    with pytest.raises(KeyError, match=packet_id):
+        read_review_batch((packet_id,))
+
+
+def test_read_review_batch_returns_defensive_snapshots(valid_packet, monkeypatch):
+    packet_id = "00000000-0000-0000-0000-000000000104"
+    monkeypatch.setattr("chirp.review.uuid4", lambda: UUID(packet_id))
+    create_review_batch(
+        (ReviewPacket.model_validate(valid_packet),),
+        lambda _reviews: None,
+    )
+
+    first = read_review_batch((packet_id,))
+    first[0].packet.payload["tampered"] = True
+    second = read_review_batch((packet_id,))
+
+    assert "tampered" not in second[0].packet.payload
+
+
+def test_read_review_batch_with_observed_at_returns_defensive_snapshots(
+    valid_packet, monkeypatch
+):
+    packet_id = "00000000-0000-0000-0000-000000000106"
+    monkeypatch.setattr("chirp.review.uuid4", lambda: UUID(packet_id))
+    create_review_batch(
+        (ReviewPacket.model_validate(valid_packet),),
+        lambda _reviews: None,
+    )
+    first, first_observed_at = read_review_batch_with_observed_at((packet_id,))
+    first[0].packet.payload["tampered"] = True
+    second, second_observed_at = read_review_batch_with_observed_at((packet_id,))
+
+    assert "tampered" not in second[0].packet.payload
+    assert first_observed_at.tzinfo is not None
+    assert second_observed_at >= first_observed_at
+
+
+def test_read_review_batch_captures_observation_time_while_locked(
+    valid_packet, monkeypatch
+):
+    packet_id = "00000000-0000-0000-0000-000000000105"
+    monkeypatch.setattr("chirp.review.uuid4", lambda: UUID(packet_id))
+    create_review_batch(
+        (ReviewPacket.model_validate(valid_packet),),
+        lambda _reviews: None,
+    )
+    import chirp.review as review_module
+
+    lock_states = []
+
+    class RecordingDateTime:
+        @classmethod
+        def now(cls, tz):
+            lock_states.append(review_module._review_lock.locked())
+            return datetime.now(tz)
+
+    monkeypatch.setattr(review_module, "datetime", RecordingDateTime)
+
+    _reviews, observed_at = read_review_batch_with_observed_at((packet_id,))
+
+    assert lock_states == [True]
+    assert observed_at.tzinfo is not None

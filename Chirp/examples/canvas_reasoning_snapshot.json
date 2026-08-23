@@ -1,0 +1,62 @@
+{
+  "canvas_id": "demo-canvas-001",
+  "snapshot_id": "demo-snapshot-001",
+  "run_id": "demo-run-001",
+  "captured_at": "2026-08-23T12:00:00Z",
+  "nodes": [
+    {
+      "node_id": "planner-component-11111111",
+      "role": "Planner",
+      "display_label": "Plan candidate",
+      "upstream_node_ids": [],
+      "reasoning_packet": {
+        "stage": "planning",
+        "role": "planner",
+        "contributor": "demo-planner",
+        "proposal": "Use a two-stage process with an explicit verification checkpoint.",
+        "inputs": [
+          "A bounded task",
+          "A human approval requirement",
+          "<strong>literal review text</strong>"
+        ],
+        "assumptions": ["The checkpoint occurs before irreversible work."],
+        "parameters": [
+          {"name": "checkpoint_count", "value": 1, "unit": "count", "source": "proposal"}
+        ],
+        "rationale": "A visible checkpoint makes the reasoning inspectable before continuation.",
+        "uncertainties": ["The reviewer may require a different checkpoint location."],
+        "payload": {"phases": ["prepare", "verify"]},
+        "provenance": {
+          "run_id": "demo-run-001",
+          "component_id": "planner-component-11111111",
+          "parent_packet_ids": []
+        }
+      }
+    },
+    {
+      "node_id": "critic-component-22222222",
+      "role": "Critic",
+      "display_label": "Challenge assumptions",
+      "upstream_node_ids": ["planner-component-11111111"],
+      "reasoning_packet": {
+        "stage": "critique",
+        "role": "critic",
+        "contributor": "demo-critic",
+        "proposal": "Confirm that the checkpoint happens before external side effects.",
+        "inputs": ["The planner proposal"],
+        "assumptions": ["External side effects cannot always be rolled back."],
+        "parameters": [],
+        "rationale": "The sequence is dependable only if approval precedes the side effect.",
+        "uncertainties": [],
+        "payload": {
+          "conflicts": ["The proposal does not yet name the external side-effect boundary."]
+        },
+        "provenance": {
+          "run_id": "demo-run-001",
+          "component_id": "critic-component-22222222",
+          "parent_packet_ids": []
+        }
+      }
+    }
+  ]
+}

@@ -2,165 +2,99 @@
 
 **Status:** Hackathon prototype contract
 
-**Date:** 2026-08-22
+Riff is the product; `chirp` remains the existing Python package and reasoning engine. Riff reviews Chirp's structured reasoning. It does not transport, understand, or gate geometry.
 
-**Companion:** [ROADMAP.md](ROADMAP.md)
-
-## Purpose
-
-Riff is a human-in-the-loop design-reasoning system for Grasshopper. It extends the existing Chirp engine with structured, attributable reasoning that a person can inspect, accept, correct, or reject before downstream design work continues.
-
-For the hackathon, Riff is the product and repository name. `chirp` remains the existing Python package, service, and Grasshopper reasoning engine. Renaming Chirp internals is explicitly deferred.
-
-## Prototype success condition
-
-The prototype is successful when this one path works end to end:
+## Prototype success path
 
 ```text
-Grasshopper submits a structured review packet
-        -> browser displays it as pending
-        -> a human accepts, requests correction, or rejects it
-        -> Grasshopper retrieves and displays that decision
-        -> accepted geometry is allowed through a simple local gate
+External main agent submits an immutable reasoning snapshot
+-> Riff produces an intelligent or deterministic trusted presentation
+-> a human accepts, requests correction, or rejects each node
+-> Riff exports current decisions with immutable reasoning and annotations
+-> the external main agent continues, revises, or stops the reasoning path
 ```
 
-Correction is shown to the user on the Grasshopper canvas. The prototype does not automatically feed correction back into Chirp or create a recursive Grasshopper cycle.
+The external main agent assembles `CanvasReasoningSnapshot` from the current Grasshopper/Chirp state. Stable `node_id` values come from component-instance identity. Riff never mutates the canvas and does not automate a correction loop.
 
 ## System boundary
 
 ```mermaid
 flowchart LR
-    GH[Grasshopper + Chirp] -->|POST /reviews| API[Riff review API inside Chirp FastAPI]
-    GH -->|GET /reviews/{packet_id}| API
-    UI[Light-mode Riff workbench] -->|GET /reviews?status=pending| API
-    UI -->|POST /reviews/{packet_id}/decision| API
-    API <--> STORE[(Locked in-memory review store)]
-    GH --> GATE[Accepted-geometry gate]
+    AGENT[External main agent] -->|POST /api/riff/snapshots| API[Riff snapshot API in Chirp FastAPI]
+    API --> PRESENTER[Riff presenter]
+    PRESENTER --> STORE[(Process-local completed snapshot store)]
+    UI[Trusted presenter] -->|GET snapshot + matrix| API
+    UI -->|POST /reviews/{packet_id}/decision| REV[Review API]
+    REV <--> RSTORE[(Locked in-memory review store)]
+    API -->|Review Matrix| AGENT
 ```
 
-The HTTP review API is the architectural seam. Browser and Grasshopper work must depend on this contract rather than importing or modifying each other's implementation.
+The reasoning snapshot API, per-packet decision API, and Review Matrix are the stable seams. The browser and external agent use HTTP; no UI behavior is imported into the backend.
 
-## Components and ownership boundaries
-
-| Component | Location | Responsibility |
-|---|---|---|
-| Chirp reasoning engine | `Chirp/src/chirp/` excluding review UI files | Existing LLM calls, component generation, tracing |
-| Review API and store | `Chirp/src/chirp/review.py` | Packet validation, immutable snapshots, decisions, queue listing |
-| API tests | `Chirp/tests/test_review.py` | Observable review behavior and regression coverage |
-| Web workbench | `Chirp/web/` | Queue, structured packet inspection, reviewer actions |
-| Grasshopper bridge | `GH/` and optional `Chirp/templates/riff_review_client.cs` | Submit packets, poll status, expose accepted/correction outputs |
-| Integration wiring | `Chirp/src/chirp/server.py` | Register review routes and serve the web workbench |
-
-Exact temporary ownership for the hackathon is defined in [ROADMAP.md](ROADMAP.md). No agent may edit another lane's files without coordinator approval.
-
-## Review API contract
-
-### Implemented endpoints
+## Implemented API
 
 ```http
+POST /api/riff/snapshots
+GET  /api/riff/snapshots/{snapshot_id}
+GET  /api/riff/snapshots/{snapshot_id}/matrix
+
 POST /reviews
-GET /reviews/{packet_id}
+GET  /reviews/{packet_id}
 POST /reviews/{packet_id}/decision
 ```
 
-The authoritative request and response models live in `Chirp/src/chirp/review.py`.
+Snapshot import is synchronous. A new valid snapshot returns `201`; an identical process-lifetime repeat returns `200`; different content under the same `snapshot_id` returns `409`. Validation errors return `422`. Import publishes the immutable snapshot, presentation, and one pending review per node atomically.
 
-### Prototype queue endpoint
+Stored snapshot retrieval never invokes the presenter. Matrix export joins current review state on demand and never mutates or regenerates stored content. `GET /reviews?status=pending` is not part of this slice.
 
-The backend lane will add:
+## Contracts and ownership
 
-```http
-GET /reviews?status=pending
-```
+| Concern | Location | Responsibility |
+|---|---|---|
+| Chirp reasoning packet and human decisions | `Chirp/src/chirp/review.py` | Strict packets, one terminal decision, locked review records, narrow batch transaction |
+| Riff presentation | `Chirp/src/chirp/riff_presenter.py` | Versioned prompt, strict grounded candidate, trusted view normalization, deterministic fallback |
+| Snapshot lifecycle and matrix | `Chirp/src/chirp/riff_snapshot.py` | Snapshot validation, idempotency, concurrency, atomic publication, live matrix join |
+| HTTP/static integration | `Chirp/src/chirp/server.py` | Long-lived dependencies, routers, `/riff/` mount only |
+| Presenter application | `Chirp/web/presenter.*` | Trusted template dispatch, safe DOM rendering, fixed human controls, matrix download |
 
-The optional `status` value is one of:
+`ReviewPacket` remains immutable source reasoning. Riff annotations are immutable advisory interpretations with grounded source references. Human decisions are the only values that change review status. The reference-only `ReviewViewModel` contains no copied reasoning, decisions, packet IDs, styles, markup, or executable behavior.
 
-```text
-pending | accepted | correction_requested | rejected
-```
+## Presenter behavior
 
-An omitted status returns all reviews. Results are returned oldest first as defensive snapshots:
-
-```json
-{
-  "reviews": [
-    {
-      "packet_id": "packet-id",
-      "created_at": "2026-08-22T22:00:00Z",
-      "status": "pending",
-      "packet": {},
-      "decision": null
-    }
-  ]
-}
-```
-
-Invalid status values return FastAPI's standard HTTP `422` response.
-
-### Decision request
-
-```json
-{
-  "action": "accept",
-  "reviewer": "Reviewer name",
-  "note": "Optional for acceptance"
-}
-```
-
-Actions are exactly `accept`, `request_correction`, or `reject`. Correction and rejection require a nonblank note.
-
-## State and trust rules
+The intelligent path receives the complete validated snapshot and may select, order, group, emphasize, and annotate only these trusted templates:
 
 ```text
-pending --accept------------> accepted
-pending --request_correction--> correction_requested
-pending --reject------------> rejected
+run_summary
+node_reasoning
+proposal_details
+conflicts_uncertainties
+provenance
+human_review
 ```
 
-- Every decision is terminal for its immutable packet.
-- Only one decision may succeed; later attempts return HTTP `409`.
-- The original packet is never modified.
-- Only accepted work may release downstream geometry.
-- Role, contributor, component, run, and parent-packet provenance remain visible.
-- Invalid, undeclared, and non-JSON-compatible values are rejected.
-- The in-memory store is protected by one lock and intentionally disappears on restart.
+The server guarantees one run summary, complete source reasoning and human-review access for every node, valid node/annotation references, and RFC 6901 grounding. Invalid model output produces a deterministic role-aware fallback with no Riff annotations. Model failures and private reasoning never enter API responses.
 
-## Web integration rules
+The static presenter is directly addressable at:
 
-- The workbench is plain HTML, CSS, and JavaScript under `Chirp/web/`.
-- FastAPI serves it at `/riff/` from the same origin as the API.
-- API requests use relative URLs; CORS is therefore unnecessary.
-- The queue polls every two seconds. WebSockets are deferred.
-- `?mock=1` uses a checked-in mock response for independent development and demo fallback.
-- The prototype UI uses light mode and the approved full-workbench layout.
+```text
+/riff/presenter.html?snapshot_id={snapshot_id}
+```
 
-## Grasshopper integration rules
+It uses root-relative same-origin requests, fixed checked-in styling, safe DOM APIs, current matrix state after reload, and verbatim matrix download. `/riff/?mock=1` remains the older queue-workbench fallback; it is not the new snapshot architecture.
 
-- The demo service URL is `http://127.0.0.1:9900`, exposed as a component input.
-- A Boolean trigger submits one packet; manual refresh or a Grasshopper Timer polls it.
-- Outputs include review ID, status, accepted state, correction note, and approved geometry.
-- Geometry remains in Grasshopper and is not serialized through the API.
-- Correction is displayed but is not automatically wired back into Chirp during the prototype.
+## State and concurrency
 
-## Platform and implementation constraints
+Snapshots, presentations, mappings, and reviews are process-local and disappear on restart. Concurrent identical imports coordinate through an in-flight record and invoke the presenter and review batch once. Conflicting content returns `409`. The fixed lock order is snapshot lock, then review lock; neither is held during an LLM call. Publication failure removes both snapshot and review residue and releases waiters.
 
-- The repository and Python service must run on Windows and macOS.
-- Do not introduce OS-specific paths into tracked files.
-- Use the existing FastAPI, Pydantic, and pytest stack.
-- The workbench has no npm, framework, build step, or external-asset requirement.
-- Do not add dependencies unless the coordinator explicitly approves them.
+## Explicit non-goals
 
-## Explicit non-goals for the prototype
-
-- Database persistence
-- Authentication or reviewer identity management
-- WebSockets
-- Multiple-reviewer consensus
-- Objective functions or recursive agent loops
-- Revision-chain automation
-- Geometry serialization
-- Production deployment
+- Geometry transport, gating, duplication, or canvas-object serialization
+- An automated Grasshopper snapshot producer or correction loop
+- `GET /reviews?status=pending`
+- Database or disk persistence, TTLs, cleanup workers, or storage abstractions
+- Authentication, multiple reviewers, decision revision, or consensus
+- WebSockets, background presentation, retries, regeneration, or streaming
+- CORS, npm, external UI assets, or browser automation
 - Internal Chirp-to-Riff package renaming
-- Elaborate visual styling beyond a coherent light-mode workbench
 
-These are roadmap candidates, not prototype blockers.
+These remain future work, not prototype requirements.
