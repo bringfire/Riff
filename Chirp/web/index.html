@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riff Review Workbench</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <h1>Riff</h1>
+    <span class="brand-sub">Review workbench</span>
+  </div>
+
+  <div class="topbar-status">
+    <span id="mockBadge" class="badge badge-mock" hidden>Mock mode</span>
+    <span id="connState" class="conn" data-state="idle">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="connText">Connecting&hellip;</span>
+    </span>
+  </div>
+</header>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<main class="layout">
+
+  <!-- ---------- LEFT: pending queue ---------- -->
+  <section class="pane pane-queue" aria-labelledby="queueHeading">
+    <div class="pane-head">
+      <h2 id="queueHeading">Pending</h2>
+      <span id="queueCount" class="count" aria-live="polite">&mdash;</span>
+    </div>
+
+    <div class="pane-body">
+      <p id="queueLoading" class="state state-loading">Loading queue&hellip;</p>
+      <p id="queueEmpty" class="state state-empty" hidden>
+        No packets awaiting review.<br>
+        <span class="state-sub">Submit one from Grasshopper to see it here.</span>
+      </p>
+      <p id="queueError" class="state state-error" hidden></p>
+      <ul id="queueList" class="queue" hidden></ul>
+    </div>
+  </section>
+
+  <!-- ---------- CENTER: packet detail ---------- -->
+  <section class="pane pane-detail" aria-labelledby="detailHeading">
+    <div class="pane-head">
+      <h2 id="detailHeading">Packet</h2>
+      <span id="detailId" class="mono-id"></span>
+    </div>
+
+    <div class="pane-body">
+      <p id="detailEmpty" class="state state-empty">
+        Select a packet from the queue to inspect it.
+      </p>
+      <article id="detail" class="detail" hidden></article>
+    </div>
+  </section>
+
+  <!-- ---------- RIGHT: decision ---------- -->
+  <section class="pane pane-decision" aria-labelledby="decisionHeading">
+    <div class="pane-head">
+      <h2 id="decisionHeading">Decision</h2>
+    </div>
+
+    <div class="pane-body">
+      <p id="decisionEmpty" class="state state-empty">
+        No packet selected.
+      </p>
+
+      <form id="decisionForm" class="decision" hidden>
+        <label class="field">
+          <span class="field-label">Reviewer <span class="req">required</span></span>
+          <input id="reviewer" name="reviewer" type="text" autocomplete="name"
+                 placeholder="Your name">
+        </label>
+
+        <label class="field">
+          <span class="field-label">
+            Note <span id="noteReq" class="req" hidden>required for correction and reject</span>
+          </span>
+          <textarea id="note" name="note" rows="7"
+                    placeholder="Optional for accept. Required to request a correction or reject."></textarea>
+        </label>
+
+        <p id="formError" class="form-error" hidden></p>
+
+        <div class="actions">
+          <button type="button" class="btn btn-accept"  data-action="accept">Accept</button>
+          <button type="button" class="btn btn-correct" data-action="request_correction">Request correction</button>
+          <button type="button" class="btn btn-reject"  data-action="reject">Reject</button>
+        </div>
+
+        <p class="decision-hint">
+          Every decision is final. A decided packet cannot be revisited.
+        </p>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

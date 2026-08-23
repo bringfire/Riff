@@ -1,0 +1,139 @@
+{
+  "reviews": [
+    {
+      "packet_id": "3f2a91c4-7b18-4e6d-9a03-1c5e8d4b7f20",
+      "created_at": "2026-08-22T22:01:14Z",
+      "status": "pending",
+      "packet": {
+        "stage": "envelope",
+        "role": "planner",
+        "contributor": "Chirp planner (claude-opus-5)",
+        "proposal": "Set the alpine hut envelope to a compact 6.4 m x 9.2 m rectangular footprint with a 38-degree asymmetric gable, long slope facing north to shed prevailing snow load away from the entry.",
+        "inputs": [
+          "Site polygon from GH/Example-01.gh, layer 'site_boundary'",
+          "Prevailing wind vector: 312 deg at 4.1 m/s (winter mean)",
+          "Design ground snow load: 4.8 kPa",
+          "Target conditioned floor area: 58 m2"
+        ],
+        "assumptions": [
+          "Timber frame construction with 200 mm mineral wool cavity",
+          "No mechanical cooling; passive ventilation only",
+          "Entry approach is from the south-east trail",
+          "Foundation is pier-and-beam on exposed rock"
+        ],
+        "parameters": [
+          { "name": "footprint_width", "value": 6.4, "unit": "m", "source": "planner" },
+          { "name": "footprint_length", "value": 9.2, "unit": "m", "source": "planner" },
+          { "name": "ridge_angle", "value": 38, "unit": "deg", "source": "planner" },
+          { "name": "north_slope_ratio", "value": 0.62, "unit": "ratio", "source": "derived" },
+          { "name": "eave_height", "value": 2.35, "unit": "m", "source": "planner" },
+          { "name": "conditioned_area", "value": 58.9, "unit": "m2", "source": "derived" }
+        ],
+        "rationale": "An asymmetric gable puts the longer, shallower slope on the windward north face so accumulated snow sheds away from the entry threshold rather than across it. The 38-degree pitch stays above the 30-degree minimum for reliable shedding at this snow load while keeping ridge height under the 6 m ridgeline visibility limit for the site. Compact proportions hold the surface-to-volume ratio near 0.72, which matters more than orientation at this altitude.",
+        "uncertainties": [
+          "Snow load figure is a regional value, not a site-specific survey",
+          "Rock foundation depth unverified; pier spacing may need revision",
+          "Entry canopy not yet sized against drift accumulation"
+        ],
+        "payload": {
+          "footprint_curve": "rect(6.4, 9.2)",
+          "ridge_axis": "north-south",
+          "surface_to_volume": 0.72
+        },
+        "provenance": {
+          "run_id": "run-2026-08-22-alpine-01",
+          "component_id": "chirp-planner-4a91",
+          "parent_packet_ids": []
+        }
+      },
+      "decision": null
+    },
+    {
+      "packet_id": "b7d4e5f1-2c93-4a87-b6e1-90fa3d8c2b45",
+      "created_at": "2026-08-22T22:03:47Z",
+      "status": "pending",
+      "packet": {
+        "stage": "envelope",
+        "role": "critic",
+        "contributor": "Chirp critic (claude-opus-5)",
+        "proposal": "Flag a conflict between the planner's 2.35 m eave height and the stated 58 m2 conditioned area: the resulting loft headroom falls below 1.9 m across 40 percent of the upper floor plate.",
+        "inputs": [
+          "Planner packet 3f2a91c4 (envelope stage)",
+          "Habitable-space headroom minimum: 1.9 m",
+          "Loft floor assumed at 2.35 m above finished floor"
+        ],
+        "assumptions": [
+          "Loft is counted toward conditioned area",
+          "Collar ties sit at 60 percent of ridge height",
+          "Floor build-up consumes 180 mm below finished loft level"
+        ],
+        "parameters": [
+          { "name": "loft_headroom_min", "value": 1.62, "unit": "m", "source": "derived" },
+          { "name": "compliant_loft_fraction", "value": 0.6, "unit": "ratio", "source": "derived" },
+          { "name": "required_eave_lift", "value": 0.45, "unit": "m", "source": "critic" }
+        ],
+        "rationale": "Taking the planner's eave height and ridge angle as given, the loft plate intersects the roof plane where clear height drops to 1.62 m at the knee wall. Only about 60 percent of the plate clears the 1.9 m habitable minimum, so the usable conditioned area is closer to 51 m2 than the claimed 58.9 m2. Raising the eave by 450 mm resolves it without changing the pitch, at the cost of pushing ridge height to 5.8 m, still inside the 6 m limit.",
+        "uncertainties": [
+          "Whether the loft is intended as habitable or storage-only",
+          "Collar tie position is assumed, not specified",
+          "Local code may define headroom measurement differently"
+        ],
+        "payload": {
+          "conflict_type": "dimensional",
+          "severity": "blocking",
+          "suggested_fix": "eave_height 2.35 -> 2.80"
+        },
+        "provenance": {
+          "run_id": "run-2026-08-22-alpine-01",
+          "component_id": "chirp-critic-8c22",
+          "parent_packet_ids": ["3f2a91c4-7b18-4e6d-9a03-1c5e8d4b7f20"]
+        }
+      },
+      "decision": null
+    },
+    {
+      "packet_id": "c1908ab6-5d47-4e02-8f3a-6b2d17e94c88",
+      "created_at": "2026-08-22T22:06:02Z",
+      "status": "pending",
+      "packet": {
+        "stage": "aperture",
+        "role": "interpreter",
+        "contributor": "Chirp interpreter (claude-opus-5)",
+        "proposal": "Read the envelope through a daylight lens: place a 2.1 m x 1.4 m south-facing glazed panel at the gable end and three 0.6 m clerestory strips along the north slope.",
+        "inputs": [
+          "Planner packet 3f2a91c4 (envelope stage)",
+          "Latitude 46.5 N, winter solstice altitude 20.1 deg",
+          "Target spatial daylight autonomy: 55 percent"
+        ],
+        "assumptions": [
+          "Glazing U-value 0.9 W/m2K, triple glazed",
+          "No external shading from adjacent terrain",
+          "Interior surfaces at 0.7 reflectance"
+        ],
+        "parameters": [
+          { "name": "south_glazing_area", "value": 2.94, "unit": "m2", "source": "interpreter" },
+          { "name": "clerestory_area", "value": 1.62, "unit": "m2", "source": "interpreter" },
+          { "name": "window_wall_ratio", "value": 0.14, "unit": "ratio", "source": "derived" },
+          { "name": "estimated_sda", "value": 0.57, "unit": "ratio", "source": "derived" }
+        ],
+        "rationale": "At this latitude the winter sun sits low enough that a tall south gable aperture delivers deep penetration when it is most wanted, while the north clerestories contribute diffuse light without the direct-gain penalty. Holding the window-wall ratio at 0.14 keeps the envelope heat loss within the passive target; pushing past 0.18 would require mechanical compensation the brief rules out.",
+        "uncertainties": [
+          "Terrain shading not modeled; a ridge to the south-west may cut afternoon gain",
+          "sDA estimate is analytical, not a Radiance run",
+          "Clerestory detailing against snow drift is unresolved"
+        ],
+        "payload": {
+          "aperture_count": 4,
+          "glazing_spec": "triple-0.9",
+          "daylight_method": "analytical"
+        },
+        "provenance": {
+          "run_id": "run-2026-08-22-alpine-01",
+          "component_id": "chirp-interpreter-2f70",
+          "parent_packet_ids": ["3f2a91c4-7b18-4e6d-9a03-1c5e8d4b7f20"]
+        }
+      },
+      "decision": null
+    }
+  ]
+}
