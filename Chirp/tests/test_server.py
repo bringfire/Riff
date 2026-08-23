@@ -1,11 +1,17 @@
 """Tests for the FastAPI server — health check and request/response shape."""
 
+from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from chirp.server import app
 
 
 client = TestClient(app)
+WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
 
 def test_health():
@@ -208,3 +214,158 @@ def test_chirp_create_with_model():
     data = resp.json()
     assert data["model"] == "openai/mercury-2"
     assert "mercury-2" in data["script"]
+
+
+def test_presenter_frontend_contract_is_ready_for_snapshot_backend():
+    html = (WEB_DIR / "presenter.html").read_text(encoding="utf-8")
+    javascript = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+
+    for element_id in (
+        "presentationSource",
+        "refreshMatrix",
+        "downloadMatrix",
+        "loadingState",
+        "errorState",
+        "presentation",
+    ):
+        assert f'id="{element_id}"' in html
+
+    assert 'src="presenter.js?v=complete-tabs-1"' in html
+    assert 'href="presenter.css?v=complete-tabs-1"' in html
+    assert '"/api/riff/snapshots/"' in javascript
+    assert '"/reviews/"' in javascript
+    assert "new URLSearchParams(window.location.search)" in javascript
+
+
+def test_presenter_javascript_uses_trusted_dispatch_and_safe_dom_contract():
+    source = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+
+    for renderer in (
+        "renderRunSummary",
+        "renderNodeReasoning",
+        "renderProposalDetails",
+        "renderConflictsUncertainties",
+        "renderProvenance",
+        "renderHumanReview",
+    ):
+        assert renderer in source
+
+    assert "textContent" in source
+    assert '"/api/riff/snapshots/"' in source
+    assert '"/reviews/"' in source
+    assert "response.blob()" in source
+    assert "eval(" not in source
+    assert "innerHTML" not in source
+    assert "dynamic import" not in source
+    assert "GET /reviews?status=pending" not in source
+
+
+def test_presenter_javascript_validates_decision_before_local_update():
+    source = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+    validation = "validateDecisionResponse(updated, review.packet_id, action)"
+    update = "applyReviewDecision(nodeId, validated)"
+
+    assert validation in source
+    assert 'accept: "accepted"' in source
+    assert 'request_correction: "correction_requested"' in source
+    assert 'reject: "rejected"' in source
+    assert update in source
+    assert source.index(validation) < source.index(update)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
+def test_presenter_review_state_handles_last_decision_and_request_races():
+    result = subprocess.run(
+        ["node", str(Path(__file__).with_name("test_presenter_state.js"))],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "presenter state tests passed" in result.stdout
+
+
+def test_presenter_rejects_invalid_snapshot_ids_without_normalizing_identity():
+    source = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+
+    assert "var SNAPSHOT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;" in source
+    assert "function isPathSafeSnapshotId(value)" in source
+    assert "if (!isPathSafeSnapshotId(state.snapshotId))" in source
+    assert "A path-safe snapshot_id query parameter is required." in source
+    query_assignment = source.split("function loadPresentation()", 1)[1].split(
+        "if (!isPathSafeSnapshotId", 1
+    )[0]
+    assert ".trim()" not in query_assignment
+
+
+def test_presenter_navigation_stays_inside_the_trusted_shell():
+    response = client.get(
+        "/riff/presenter.html?snapshot_id=demo-snapshot-001"
+    )
+    assert response.status_code == 200
+
+    html = response.text
+    assert 'href="./"' not in html
+    assert 'id="showAbout"' in html
+    assert 'id="showWorkbench"' in html
+    assert 'id="aboutPanel"' in html
+    assert 'id="workbenchPanel"' in html
+    assert 'href="presenter.css?v=complete-tabs-1"' in html
+    assert 'src="presenter.js?v=complete-tabs-1"' in html
+
+
+def test_presenter_preserves_all_git_tejal_views_and_about_content():
+    response = client.get(
+        "/riff/presenter.html?snapshot_id=demo-snapshot-001"
+    )
+    assert response.status_code == 200
+
+    html = response.text
+    for element_id in (
+        "showAbout",
+        "showConnect",
+        "showWorkbench",
+        "showHistory",
+        "aboutPanel",
+        "connectPanel",
+        "workbenchPanel",
+        "historyPanel",
+    ):
+        assert f'id="{element_id}"' in html
+
+    assert 'src="uploads/RIFF-Workflow-share.html"' in html
+    assert 'sandbox="allow-scripts"' in html
+    about = client.get("/riff/uploads/RIFF-Workflow-share.html")
+    assert about.status_code == 200
+    assert "AEC Tech Hackathon" in about.text
+    assert "The broker compiles and publishes" in about.text
+    assert "Review Matrix" in about.text
+    assert "external LLM agent" in about.text
+    assert "the round runs again" not in about.text
+    assert "loop runs until every change is approved" not in about.text
+
+
+def test_riff_snapshot_routes_and_existing_routes_are_registered():
+    paths = {route.path for route in app.routes}
+    assert "/api/riff/snapshots" in paths
+    assert "/api/riff/snapshots/{snapshot_id}" in paths
+    assert "/api/riff/snapshots/{snapshot_id}/matrix" in paths
+    assert "/reviews" in paths
+    assert "/reviews/{packet_id}" in paths
+    assert "/reviews/{packet_id}/decision" in paths
+    assert "/chirp/call" in paths
+
+
+@pytest.mark.parametrize(
+    ("path", "content_type"),
+    [
+        ("/riff/presenter.html?snapshot_id=demo", "text/html"),
+        ("/riff/presenter.js", "javascript"),
+        ("/riff/presenter.css", "text/css"),
+    ],
+)
+def test_riff_presenter_static_files_are_served(path, content_type):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert content_type in response.headers["content-type"]

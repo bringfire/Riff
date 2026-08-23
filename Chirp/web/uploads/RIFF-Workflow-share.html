@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Riff reasoning review workflow</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111418;
+      color: #eef2f4;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: clamp(1rem, 3vw, 2.5rem); }
+    main { max-width: 1120px; margin: 0 auto; }
+    .eyebrow, .tag {
+      color: #e6bd6b;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: .75rem;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    h1 { max-width: 760px; margin: .5rem 0; font-size: clamp(2rem, 5vw, 4rem); line-height: 1; }
+    .lede { max-width: 760px; color: #bcc5cb; font-size: 1.05rem; line-height: 1.6; }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin: 2.25rem 0;
+    }
+    article {
+      min-height: 220px;
+      padding: 1.15rem;
+      border: 1px solid #384149;
+      border-top: 3px solid #e6bd6b;
+      border-radius: .75rem;
+      background: #1a1f24;
+    }
+    article:nth-child(1) { border-top-color: #6dcde0; }
+    article:nth-child(3) { border-top-color: #de78bd; }
+    article:nth-child(4) { border-top-color: #72d49b; }
+    h2 { margin: .65rem 0; font-size: 1.1rem; }
+    article p { margin: 0; color: #bdc6cc; line-height: 1.55; }
+    .boundary {
+      padding: 1.15rem 1.3rem;
+      border: 1px solid #384149;
+      border-radius: .75rem;
+      background: #161a1e;
+      color: #cbd2d7;
+      line-height: 1.6;
+    }
+    strong { color: #fff; }
+    @media (max-width: 850px) { .flow { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 520px) { .flow { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">AEC Tech Hackathon · Riff</p>
+    <h1>Reasoning becomes reviewable.</h1>
+    <p class="lede">
+      Chirp produces structured reasoning on the Grasshopper canvas. The broker compiles and publishes
+      an immutable snapshot so people can inspect every node, record a decision, and hand one authoritative
+      artifact back to the external LLM agent.
+    </p>
+
+    <section class="flow" aria-label="Riff reasoning review workflow">
+      <article>
+        <span class="tag">01 · Chirp</span>
+        <h2>Structured source reasoning</h2>
+        <p>Each node contributes a complete ReviewPacket with stable identity, role, rationale, assumptions, parameters, and provenance.</p>
+      </article>
+      <article>
+        <span class="tag">02 · Riff</span>
+        <h2>Adaptive trusted presentation</h2>
+        <p>Riff reads the complete snapshot, adds grounded annotations, and arranges trusted UI templates without rewriting the source.</p>
+      </article>
+      <article>
+        <span class="tag">03 · Human</span>
+        <h2>Per-node decisions</h2>
+        <p>A reviewer accepts, rejects, or requests a correction with attribution. Human state stays separate from Chirp reasoning and Riff analysis.</p>
+      </article>
+      <article>
+        <span class="tag">04 · Export</span>
+        <h2>Review Matrix</h2>
+        <p>The current canvas state, immutable reasoning, Riff annotations, and human decisions are exported as one node-ordered JSON document.</p>
+      </article>
+    </section>
+
+    <p class="boundary">
+      <strong>Human-controlled handoff:</strong> Riff does not modify Grasshopper, resubmit Chirp nodes, or run an automatic approval loop.
+      A person exports the Review Matrix; the external LLM agent may then author tailored correction panels and place them back on the canvas.
+    </p>
+  </main>
+</body>
+</html>

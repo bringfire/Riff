@@ -15,12 +15,15 @@ from fastapi import FastAPI, Request
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from chirp.adapter import ChirpAdapter
 from chirp.review import router as review_router
+from chirp.riff_presenter import RiffPresenter
+from chirp.riff_snapshot import SnapshotService, create_riff_router
 from chirp.rook_tool import chirp_create
 from chirp.tracing import TraceLogger
 
@@ -113,9 +116,16 @@ async def _lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Chirp", version="0.1.0", lifespan=_lifespan)
-app.include_router(review_router)
 adapter = ChirpAdapter()
 tracer = TraceLogger()
+riff_presenter = RiffPresenter(adapter)
+riff_snapshot_service = SnapshotService(riff_presenter)
+
+app.include_router(review_router)
+app.include_router(create_riff_router(riff_snapshot_service))
+
+_WEB_DIR = Path(__file__).resolve().parents[2] / "web"
+app.mount("/riff", StaticFiles(directory=_WEB_DIR, html=True), name="riff")
 
 
 @app.exception_handler(RequestValidationError)

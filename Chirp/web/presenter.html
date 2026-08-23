@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Riff reasoning review</title>
+  <link rel="stylesheet" href="presenter.css?v=complete-tabs-1">
+</head>
+<body>
+  <!-- Visual baseline: GitTejal commit 9169891. -->
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="eyebrow">Human-in-the-loop review</div>
+        <h1>RIFF <span>as an extension of CHIRP</span></h1>
+      </div>
+      <nav class="top-actions" aria-label="Riff navigation and actions">
+        <div class="view-tabs" role="tablist" aria-label="Riff views">
+          <button
+            id="showAbout"
+            class="pill"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="aboutPanel"
+          >About</button>
+          <button
+            id="showConnect"
+            class="pill"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="connectPanel"
+          >Connect</button>
+          <button
+            id="showWorkbench"
+            class="pill pill-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="workbenchPanel"
+          >Workbench</button>
+          <button
+            id="showHistory"
+            class="pill"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="historyPanel"
+          >History</button>
+        </div>
+        <button id="refreshMatrix" class="pill" type="button">Refresh reviews</button>
+        <button id="downloadMatrix" class="pill" type="button">Download matrix</button>
+      </nav>
+    </header>
+
+    <main class="workspace">
+      <section
+        id="aboutPanel"
+        class="full-view about-view"
+        role="tabpanel"
+        aria-labelledby="showAbout"
+        hidden
+      >
+        <iframe
+          class="about-frame"
+          src="uploads/RIFF-Workflow-share.html"
+          title="Riff workflow overview"
+          sandbox="allow-scripts"
+        ></iframe>
+      </section>
+
+      <section
+        id="connectPanel"
+        class="full-view connect-view"
+        role="tabpanel"
+        aria-labelledby="showConnect"
+        hidden
+      >
+        <div class="connect-card">
+          <div>
+            <p class="source-label">Connection</p>
+            <h2>Connect to Chirp</h2>
+            <p>Riff uses the Chirp snapshot and review APIs served from this same origin.</p>
+          </div>
+          <label class="connect-field">
+            <span>Service URL</span>
+            <input id="serviceUrl" type="text" readonly>
+          </label>
+          <div class="connect-status-card">
+            <div>
+              <strong>Connection</strong>
+              <span id="connectionHint">Loading the current snapshot…</span>
+            </div>
+            <div class="connection-value">
+              <span id="connectionDot" class="status-dot status-pending"></span>
+              <span id="connectionLabel">Checking</span>
+            </div>
+          </div>
+          <div class="connect-status-card">
+            <div>
+              <strong>Snapshot</strong>
+              <span>The presenter reconnects through its snapshot ID.</span>
+            </div>
+            <code id="connectionSnapshot">—</code>
+          </div>
+          <button id="enterWorkbench" class="primary-action" type="button">Enter workbench →</button>
+        </div>
+      </section>
+
+      <section
+        id="historyPanel"
+        class="full-view history-view"
+        role="tabpanel"
+        aria-labelledby="showHistory"
+        hidden
+      >
+        <div class="history-heading">
+          <div>
+            <p class="source-label">Decided packets</p>
+            <h2>Review history</h2>
+          </div>
+          <div class="history-filters" aria-label="History filters">
+            <button class="pill pill-active" type="button" data-history-filter="all" aria-pressed="true">All</button>
+            <button class="pill" type="button" data-history-filter="accepted" aria-pressed="false">Accepted</button>
+            <button class="pill" type="button" data-history-filter="correction_requested" aria-pressed="false">Correction</button>
+            <button class="pill" type="button" data-history-filter="rejected" aria-pressed="false">Rejected</button>
+          </div>
+        </div>
+        <div id="historyList" class="history-list" aria-live="polite"></div>
+      </section>
+
+      <aside id="workbenchQueue" class="queue-pane" aria-labelledby="nodeQueueHeading">
+        <div class="pane-heading">
+          <span id="nodeQueueHeading">Snapshot nodes</span>
+          <span class="live-count"><span class="live-dot"></span><span id="nodeCount">—</span></span>
+        </div>
+        <div id="nodeIndex" class="node-index" aria-live="polite"></div>
+      </aside>
+
+      <section id="workbenchDetail" class="detail-pane" aria-label="Snapshot presentation">
+        <div
+          id="workbenchPanel"
+          role="tabpanel"
+          aria-labelledby="showWorkbench"
+        >
+          <p id="loadingState" class="state-message" role="status">Loading snapshot presentation…</p>
+          <p id="errorState" class="error-message" role="alert" hidden></p>
+          <div id="presentation" class="presentation" hidden></div>
+        </div>
+      </section>
+
+      <aside id="workbenchTools" class="tools-pane" aria-labelledby="snapshotHeading">
+        <div>
+          <div id="snapshotHeading" class="section-label">Snapshot</div>
+          <div id="presentationSource" class="source-badge">presentation_source: —</div>
+        </div>
+
+        <dl class="snapshot-meta">
+          <div><dt>Snapshot ID</dt><dd id="snapshotId">—</dd></div>
+          <div><dt>Canvas</dt><dd id="canvasId">—</dd></div>
+          <div><dt>Run</dt><dd id="runId">—</dd></div>
+          <div><dt>Captured</dt><dd id="capturedAt">—</dd></div>
+        </dl>
+
+        <div class="review-completion">
+          <div>
+            <strong>Review Matrix</strong>
+            <span id="reviewComplete">Waiting for snapshot</span>
+          </div>
+          <span id="reviewCompletionDot" class="status-dot"></span>
+        </div>
+
+        <div class="trust-note">
+          <strong>Trusted presentation</strong>
+          <p>Source reasoning, Riff assessments, and human decisions remain separate and inspectable.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="presenter.js?v=complete-tabs-1"></script>
+</body>
+</html>
