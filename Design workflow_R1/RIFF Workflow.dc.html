@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: oklch(0.17 0.012 255); color: oklch(0.93 0.008 90); font-family: 'Space Grotesk', Helvetica, sans-serif; }
+  a { color: oklch(0.75 0.13 205); text-decoration: none; }
+  a:hover { color: oklch(0.85 0.10 205); }
+  button { font-family: inherit; }
+  @keyframes dashflow { from { stroke-dashoffset: 240; } to { stroke-dashoffset: 0; } }
+  @keyframes softpulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+</style>
+</helmet>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="300" fill="#1a1c20"></rect>
+    <rect x="120" y="110" width="70" height="70" rx="10" fill="none" stroke="#5ec8e0" stroke-width="4"></rect>
+    <rect x="210" y="110" width="70" height="70" rx="10" fill="none" stroke="#e0ac5e" stroke-width="4"></rect>
+    <path d="M190 145 H210" stroke="#8a8f98" stroke-width="4"></path>
+    <path d="M245 180 V215 H155 V180" stroke="#e05ea8" stroke-width="4" fill="none"></path>
+    <text x="200" y="90" fill="#f2f0eb" font-family="monospace" font-size="26" text-anchor="middle">RIFF</text>
+  </svg>
+</template>
+
+<div style="min-height:100vh; padding:28px 34px 40px; display:flex; flex-direction:column; gap:22px">
+
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; border-bottom:1px solid oklch(0.30 0.012 255); padding-bottom:18px">
+    <div style="display:flex; flex-direction:column; gap:8px">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:oklch(0.68 0.02 255)">AEC Tech Hackathon · workflow</div>
+      <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap">
+        <h1 style="margin:0; font-size:40px; font-weight:600; letter-spacing:-0.02em">RIFF <span style="color:oklch(0.60 0.02 255); font-weight:400">as an extension of</span> CHIRP</h1>
+      </div>
+      <div style="max-width:780px; font-size:15px; line-height:1.55; color:oklch(0.78 0.012 255); text-wrap:pretty">CHIRP components do the work inside Grasshopper and state their reasons. The RIFF broker compiles that reasoning and publishes it for a human to accept, reject or change. Those decisions return to the LLM agent as JSON, and the round runs again until everything is approved.</div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.onClick }}" style="padding:10px 16px; border-radius:999px; font-size:13px; font-weight:500; letter-spacing:.01em; cursor:pointer; border:1px solid {{ t.border }}; background:{{ t.bg }}; color:{{ t.color }}; transition:all .18s">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ isConcept }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; gap:28px">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.68 0.02 255)">The whole idea in four moves</div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:18px">
+        <sc-for list="{{ conceptCards }}" as="c" hint-placeholder-count="4">
+          <div style="border:1px solid {{ c.border }}; background:{{ c.bg }}; border-radius:14px; padding:22px 22px 24px; display:flex; flex-direction:column; gap:12px; min-height:230px">
+            <div style="display:flex; align-items:center; justify-content:space-between">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; color:{{ c.accent }}">{{ c.tag }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:26px; color:oklch(0.38 0.012 255)">{{ c.num }}</div>
+            </div>
+            <div style="font-size:21px; font-weight:600; letter-spacing:-0.01em; line-height:1.2">{{ c.title }}</div>
+            <div style="font-size:14px; line-height:1.6; color:oklch(0.80 0.012 255); text-wrap:pretty">{{ c.body }}</div>
+            <div style="margin-top:auto; font-family:'IBM Plex Mono',monospace; font-size:11.5px; line-height:1.5; color:{{ c.accent }}">{{ c.plain }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="border:1px dashed oklch(0.42 0.03 340); border-radius:14px; padding:18px 22px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; background:oklch(0.20 0.014 340)">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:26px; color:oklch(0.72 0.14 340)">&#8592;</div>
+        <div style="display:flex; flex-direction:column; gap:4px">
+          <div style="font-size:16px; font-weight:600">Feedback loop</div>
+          <div style="font-size:14px; color:oklch(0.80 0.012 255); line-height:1.55">Every human decision is written into a JSON file and pushed back to the LLM agent, which passes it on to the CHIRP components. The loop keeps running until all changes are approved and the best solution is reached.</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:14px; flex-wrap:wrap">
+        <sc-for list="{{ conceptStats }}" as="s" hint-placeholder-count="3">
+          <div style="flex:1 1 220px; border-left:2px solid {{ s.accent }}; padding:4px 0 4px 16px; display:flex; flex-direction:column; gap:6px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:oklch(0.66 0.02 255)">{{ s.label }}</div>
+            <div style="font-size:15px; line-height:1.5; color:oklch(0.88 0.01 255)">{{ s.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isFlow }}">
+    <div style="display:flex; flex-direction:column; gap:18px">
+
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 16px; border:1px solid oklch(0.29 0.012 255); border-radius:12px; background:oklch(0.20 0.012 255)">
+        <div style="display:flex; align-items:center; gap:8px">
+          <button onClick="{{ prevStep }}" style="width:36px; height:36px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer; font-size:15px">&#8592;</button>
+          <button onClick="{{ nextStep }}" style="width:36px; height:36px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer; font-size:15px">&#8594;</button>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:oklch(0.78 0.012 255); min-width:150px">{{ stepLabel }}</div>
+        </div>
+        <div style="width:1px; height:26px; background:oklch(0.30 0.012 255)"></div>
+        <button onClick="{{ toggleAll }}" style="padding:9px 14px; border-radius:8px; font-size:12.5px; cursor:pointer; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.88 0.01 255)">{{ allLabel }}</button>
+        <button onClick="{{ toggleFlowAnim }}" style="padding:9px 14px; border-radius:8px; font-size:12.5px; cursor:pointer; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.88 0.01 255)">{{ animLabel }}</button>
+        <div style="width:1px; height:26px; background:oklch(0.30 0.012 255)"></div>
+        <div style="display:flex; align-items:center; gap:8px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.64 0.02 255)">Zoom</div>
+          <button onClick="{{ zoomOut }}" style="width:32px; height:32px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer">&#8722;</button>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; width:46px; text-align:center; color:oklch(0.80 0.012 255)">{{ zoomLabel }}</div>
+          <button onClick="{{ zoomIn }}" style="width:32px; height:32px; border-radius:8px; border:1px solid oklch(0.34 0.012 255); background:oklch(0.24 0.012 255); color:oklch(0.90 0.01 255); cursor:pointer">+</button>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:16px; flex-wrap:wrap">
+          <sc-for list="{{ legend }}" as="l" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:7px">
+              <div style="width:10px; height:10px; border-radius:3px; background:{{ l.color }}"></div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.76 0.012 255)">{{ l.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div ref="{{ canvasWrap }}" style="width:100%">
+      <div style="width:100%; overflow:auto; border:1px solid oklch(0.27 0.012 255); border-radius:14px; background:oklch(0.185 0.012 255); padding:0">
+        <div style="width:{{ boxW }}px; height:{{ boxH }}px; position:relative">
+        <div style="width:1330px; height:830px; position:absolute; top:0; left:0; transform-origin:top left; transform:scale({{ scale }})">
+          <svg width="1330" height="830" viewBox="0 0 1330 830" style="position:absolute; inset:0; overflow:visible">
+            <defs>
+              <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="oklch(0.62 0.02 255)"></path>
+              </marker>
+            </defs>
+            <sc-for list="{{ paths }}" as="p" hint-placeholder-count="8">
+              <path d="{{ p.d }}" fill="none" stroke="{{ p.stroke }}" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#ah)" style="opacity:{{ p.opacity }}; transition:opacity .25s"></path>
+            </sc-for>
+            <sc-for list="{{ pulsePaths }}" as="p" hint-placeholder-count="8">
+              <path d="{{ p.d }}" fill="none" stroke="{{ p.pulse }}" stroke-width="3" stroke-linecap="round" style="stroke-dasharray:12 240; animation:dashflow {{ p.dur }}s linear infinite; animation-delay:{{ p.delay }}s; animation-play-state:{{ p.playState }}; opacity:{{ p.opacity }}"></path>
+            </sc-for>
+          </svg>
+
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+            <div style="position:absolute; left:{{ g.left }}px; top:{{ g.top }}px; width:{{ g.w }}px; height:{{ g.h }}px; border:1px dashed {{ g.border }}; border-radius:16px; pointer-events:none; opacity:{{ g.opacity }}; transition:opacity .25s">
+              <div style="position:absolute; top:-11px; left:18px; padding:1px 10px; background:oklch(0.185 0.012 255); font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:{{ g.border }}">{{ g.label }}</div>
+            </div>
+          </sc-for>
+
+          <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="8">
+            <div onClick="{{ n.onClick }}" style="position:absolute; left:{{ n.left }}px; top:{{ n.top }}px; width:{{ n.w }}px; height:{{ n.h }}px; border:1px solid {{ n.border }}; background:{{ n.bg }}; border-radius:12px; padding:13px 15px; display:flex; flex-direction:column; gap:5px; cursor:pointer; opacity:{{ n.opacity }}; box-shadow:{{ n.shadow }}; transition:opacity .25s, box-shadow .2s, border-color .2s">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.16em; color:{{ n.accent }}">{{ n.tag }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.50 0.012 255)">{{ n.num }}</div>
+              </div>
+              <div style="font-size:17.5px; font-weight:600; line-height:1.18; letter-spacing:-0.01em">{{ n.title }}</div>
+              <div style="font-size:13.5px; line-height:1.4; color:oklch(0.78 0.012 255); text-wrap:pretty">{{ n.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+        </div>
+      </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px">
+        <div style="border:1px solid {{ detail.border }}; background:{{ detail.bg }}; border-radius:14px; padding:22px 24px; display:flex; flex-direction:column; gap:14px; min-height:220px">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:{{ detail.accent }}">{{ detail.tag }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ detail.hint }}</div>
+          </div>
+          <div style="font-size:24px; font-weight:600; letter-spacing:-0.015em; line-height:1.15">{{ detail.title }}</div>
+          <div style="display:flex; flex-direction:column; gap:9px">
+            <sc-for list="{{ detail.bullets }}" as="b" hint-placeholder-count="3">
+              <div style="display:flex; gap:11px; align-items:flex-start">
+                <div style="width:5px; height:5px; border-radius:2px; background:{{ detail.accent }}; margin-top:8px; flex:none"></div>
+                <div style="font-size:14.5px; line-height:1.55; color:oklch(0.88 0.01 255); text-wrap:pretty">{{ b }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ showPlain }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:auto; padding-top:14px; border-top:1px solid oklch(0.30 0.012 255); font-size:14px; line-height:1.55; color:oklch(0.82 0.012 255)"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.62 0.02 255)">In plain terms &nbsp;</span>{{ detail.plain }}</div>
+          </sc-if>
+        </div>
+
+        <div style="border:1px solid oklch(0.28 0.012 255); background:oklch(0.20 0.012 255); border-radius:14px; padding:22px 24px; display:flex; flex-direction:column; gap:16px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:oklch(0.64 0.02 255)">Data on the wire</div>
+          <sc-for list="{{ detail.io }}" as="row" hint-placeholder-count="3">
+            <div style="display:flex; flex-direction:column; gap:5px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.58 0.012 255)">{{ row.k }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.5; color:oklch(0.88 0.01 255); text-wrap:pretty">{{ row.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isDev }}">
+    <div style="display:flex; flex-direction:column; gap:22px">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.68 0.02 255)">How the team ships it</div>
+        <div style="font-size:15px; line-height:1.55; color:oklch(0.80 0.012 255); max-width:720px">This is team process, not product behaviour. It runs alongside the flow on the previous tab.</div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px">
+        <sc-for list="{{ devSteps }}" as="d" hint-placeholder-count="9">
+          <div style="border:1px solid oklch(0.29 0.012 255); background:oklch(0.205 0.012 255); border-radius:12px; padding:18px 20px; display:flex; flex-direction:column; gap:10px">
+            <div style="display:flex; align-items:center; gap:10px">
+              <div style="width:26px; height:26px; border-radius:7px; border:1px solid oklch(0.40 0.05 205); color:oklch(0.75 0.13 205); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:12px">{{ d.n }}</div>
+              <div style="font-size:16px; font-weight:600; line-height:1.2">{{ d.title }}</div>
+            </div>
+            <div style="font-size:13.5px; line-height:1.55; color:oklch(0.79 0.012 255); text-wrap:pretty">{{ d.body }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.62 0.02 255)">{{ d.where }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isRoadmap }}">
+    <div style="display:flex; flex-direction:column; gap:22px">
+      <div style="display:flex; flex-direction:column; gap:8px">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.68 0.02 255)">Build order</div>
+        <div style="font-size:15px; line-height:1.55; color:oklch(0.80 0.012 255); max-width:760px">Reconstructed from your brief and sketches. Send me the architecture &amp; roadmap document and I will replace these with its exact phases and names.</div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <sc-for list="{{ phases }}" as="p" hint-placeholder-count="4">
+          <div style="display:grid; grid-template-columns:110px minmax(0,1fr) minmax(0,1fr); gap:22px; align-items:start; border:1px solid oklch(0.28 0.012 255); border-left:3px solid {{ p.accent }}; background:oklch(0.20 0.012 255); border-radius:12px; padding:20px 24px">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; color:{{ p.accent }}">{{ p.tag }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ p.state }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:19px; font-weight:600; letter-spacing:-0.01em">{{ p.title }}</div>
+              <div style="font-size:14px; line-height:1.55; color:oklch(0.80 0.012 255); text-wrap:pretty">{{ p.body }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <sc-for list="{{ p.items }}" as="i" hint-placeholder-count="3">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.5; color:oklch(0.84 0.01 255)">{{ i }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="margin-top:auto; padding-top:20px; border-top:1px solid oklch(0.26 0.012 255); font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; color:oklch(0.56 0.012 255)">Terminology taken from your two sketches and brief. Attach the architecture &amp; roadmap doc to lock exact names.</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showPlainLanguage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Presentation&quot;},&quot;pulseSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:3.4,&quot;min&quot;:1.2,&quot;max&quot;:8,&quot;step&quot;:0.2,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Presentation&quot;}}">
+const C = {
+  chirp: 'oklch(0.75 0.13 205)',
+  riff: 'oklch(0.78 0.13 75)',
+  human: 'oklch(0.72 0.14 340)',
+  out: 'oklch(0.78 0.13 150)',
+  input: 'oklch(0.72 0.02 255)'
+};
+const TINT = {
+  chirp: 'oklch(0.215 0.028 205)',
+  riff: 'oklch(0.215 0.028 75)',
+  human: 'oklch(0.215 0.030 340)',
+  out: 'oklch(0.215 0.028 150)',
+  input: 'oklch(0.215 0.012 255)'
+};
+
+const NODES = [
+  { id: 'llm', kind: 'input', left: 40, top: 150, w: 220, h: 130, num: '01', tag: 'LLM AGENT', title: 'Brief in, parameters set', sub: 'A person gives the design brief and sets the parameters',
+    bullets: ['You write the brief in ordinary language and set the parameters it must respect.', 'The LLM agent turns that into a structured instruction the CHIRP components can act on.', 'This same agent is where the loop returns to later, so it holds the running context of the whole session.'],
+    plain: 'You tell it what you want. It writes the instructions.',
+    io: [{ k: 'in', v: 'design brief + parameters' }, { k: 'out', v: 'structured instruction' }, { k: 'to', v: 'CHIRP components' }] },
+  { id: 'chirp', kind: 'chirp', left: 350, top: 150, w: 250, h: 130, num: '02', tag: 'CHIRP', title: 'Components do the function', sub: 'Preset inputs and outputs, agent logic in between — with reasons',
+    bullets: ['Each CHIRP component sits in Grasshopper with fixed input and output sockets; the logic in between is the agent\u2019s.', 'Every component performs its function and states the reasons for the result it produced.', 'Because the sockets are preset, components can be chained or swapped without rewiring the definition.'],
+    plain: 'Small automated specialists do their bit of the job and each one writes down why.',
+    io: [{ k: 'in', v: 'structured instruction' }, { k: 'runs in', v: 'Grasshopper + Rhino' }, { k: 'out', v: 'result + reasons, per component' }] },
+  { id: 'broker', kind: 'riff', left: 700, top: 150, w: 230, h: 130, num: '03', tag: 'RIFF BROKER', title: 'Compile, package, parse', sub: 'Collects every component\u2019s reasoning into one parsed package',
+    bullets: ['The broker gathers the reasoning from all CHIRP components in the definition.', 'It compiles and parses them into a single package \u2014 one readable object rather than scattered outputs.', 'That package is what leaves Grasshopper; nothing downstream needs Rhino.'],
+    plain: 'RIFF collects everything the components said and bundles it into one tidy parcel.',
+    io: [{ k: 'in', v: 'results + reasons' }, { k: 'compiles', v: 'all reasoning' }, { k: 'out', v: 'parsed package' }] },
+  { id: 'publish', kind: 'riff', left: 1030, top: 150, w: 220, h: 130, num: '04', tag: 'PUBLISH', title: 'Sent to a web server', sub: 'Published on a web link, each CHIRP as a pending question',
+    bullets: ['The package is pushed to a web server and published as a plain web link.', 'Each CHIRP appears as its own pending question, with its reasoning attached.', 'No install and no Rhino licence \u2014 a reviewer opens the link on any device.'],
+    plain: 'The parcel becomes a web page, with one question per component waiting for an answer.',
+    io: [{ k: 'in', v: 'parsed package' }, { k: 'surface', v: 'web link' }, { k: 'shows', v: 'pending questions' }] },
+  { id: 'human', kind: 'human', left: 1030, top: 400, w: 220, h: 130, num: '05', tag: 'HUMAN', title: 'Accept · Reject · Request change', sub: 'The reviewer answers each pending question',
+    bullets: ['Three moves per question: accept it, reject it, or request a change.', 'A requested change can carry a comment, which becomes the substance of the next round.', 'Judgement stays with the person; the machine keeps the bookkeeping.'],
+    plain: 'A person goes through the list and says yes, no, or change this.',
+    io: [{ k: 'in', v: 'pending questions' }, { k: 'out', v: 'decisions + comments' }] },
+  { id: 'json', kind: 'riff', left: 700, top: 400, w: 230, h: 130, num: '06', tag: 'RETURN TRIP', title: 'Pushed back as JSON', sub: 'Decisions travel to the LLM agent as a JSON file',
+    bullets: ['Every decision and comment is serialised into a JSON file.', 'JSON is the contract between the web review and the LLM agent \u2014 machine-readable, order-preserving, easy to diff between rounds.', 'The agent receives it as the new state of the design, not as a fresh brief.'],
+    plain: 'The answers get written into one structured file and handed back to the LLM.',
+    io: [{ k: 'in', v: 'human decisions' }, { k: 'format', v: 'JSON' }, { k: 'to', v: 'LLM agent' }] },
+  { id: 'gate', kind: 'human', left: 700, top: 650, w: 230, h: 120, num: '07', tag: 'GATE', title: 'All changes approved?', sub: 'No → LLM pushes the decisions back to CHIRP · Yes → done',
+    bullets: ['The agent checks whether every pending question has been approved.', 'If any remain open, it pushes the decisions back to the CHIRP components and the round runs again.', 'The number of rounds is not fixed \u2014 approval decides when it stops.'],
+    plain: 'Anything still unapproved? Go round again.',
+    io: [{ k: 'tests', v: 'approval of every CHIRP' }, { k: 'branches', v: 'loop / finish' }] },
+  { id: 'best', kind: 'out', left: 1030, top: 650, w: 240, h: 120, num: '08', tag: 'RESULT', title: 'Best solution', sub: 'Everything approved, with the full decision trail behind it',
+    bullets: ['The surviving design has been approved question by question.', 'Every accept, reject and requested change that shaped it is on record.', 'The trail is as much the deliverable as the geometry is.'],
+    plain: 'One answer everyone signed off on, with the receipts for how you got there.',
+    io: [{ k: 'out', v: 'approved solution + audit trail' }] }
+];
+
+const PATHS = [
+  { d: 'M260,215 H342', from: 'llm', to: 'chirp' },
+  { d: 'M600,215 H692', from: 'chirp', to: 'broker' },
+  { d: 'M930,215 H1022', from: 'broker', to: 'publish' },
+  { d: 'M1140,280 V392', from: 'publish', to: 'human' },
+  { d: 'M1030,465 H938', from: 'human', to: 'json' },
+  { d: 'M815,530 V642', from: 'json', to: 'gate' },
+  { d: 'M930,710 H1022', from: 'gate', to: 'best' },
+  { d: 'M700,710 H150 V288', from: 'gate', to: 'llm' }
+];
+
+const GROUPS = [
+  { label: 'LLM agent', left: 20, top: 118, w: 260, h: 194 },
+  { label: 'CHIRP · Grasshopper', left: 330, top: 118, w: 290, h: 194 },
+  { label: 'RIFF · compile, publish, review', left: 680, top: 118, w: 590, h: 444 },
+  { label: 'Loop or finish', left: 680, top: 618, w: 610, h: 184 }
+];
+
+const DEV = [
+  { n: '01', title: 'Shared channel', body: 'A group is set up so everyone posts in one place and nothing is decided in private DMs.', where: 'Discord' },
+  { n: '02', title: 'Install Git', body: 'Every machine gets Git so it can talk to the repository.', where: 'Local PC' },
+  { n: '03', title: 'Clone the repo', body: 'Clone the repository into a working folder on your own machine.', where: 'Claude Code / terminal' },
+  { n: '04', title: 'Repository is the truth', body: 'Whatever is in the GitHub repo is the project. Your folder is a mirror of it.', where: 'GitHub' },
+  { n: '05', title: 'Work locally', body: 'Make changes in your local copy, where breaking things costs nothing.', where: 'Desktop' },
+  { n: '06', title: 'Commit', body: 'Group your changes into commits with a message explaining the intent.', where: 'Git' },
+  { n: '07', title: 'Open a pull request', body: 'The PR is the formal mechanism for proposing your change to the team.', where: 'GitHub' },
+  { n: '08', title: 'Review', body: 'A teammate reads it and says yes or no, with comments. Same shape as the RIFF loop, run by people.', where: 'GitHub' },
+  { n: '09', title: 'Merge and pull', body: 'Approved work merges into the repo; everyone pulls and is back in sync.', where: 'GitHub' }
+];
+
+const PHASES = [
+  { tag: 'PHASE 01', state: 'foundation', accent: C.chirp, title: 'CHIRP: agents with preset sockets', body: 'Establish the contract first — fixed input and output sockets for every agent inside Grasshopper, so the logic in between can change freely.', items: ['Preset I/O schema', 'Agent scaffold in GH', 'Rhino geometry pipeline'] },
+  { tag: 'PHASE 02', state: 'foundation', accent: C.chirp, title: 'Reasoning as a first-class output', body: 'Components stop emitting geometry alone. Each result carries a machine-readable record of why it was produced.', items: ['Reasoning payload format', 'Reasons per component', 'LLM agent: brief → parameters'] },
+  { tag: 'PHASE 03', state: 'the RIFF layer', accent: C.riff, title: 'RIFF broker: compile, parse, publish', body: 'The broker compiles the reasoning from every CHIRP component, parses it into one package, and publishes it to a web server as pending questions.', items: ['Broker compile + parse', 'Web server transport', 'Review web app', 'Accept / reject / request change'] },
+  { tag: 'PHASE 04', state: 'closing the loop', accent: C.human, title: 'JSON return and approval', body: 'Decisions are pushed back to the LLM agent as JSON. The agent pushes them on to the CHIRP components, and the loop runs until every change is approved.', items: ['Decision → JSON schema', 'LLM agent state across rounds', 'Approval gate', 'Audit trail on the result'] }
+];
+
+const N = NODES.length;
+
+class Component extends DCLogic {
+  state = { view: 'concept', step: 0, selected: 'chirp', animate: true, zoom: 1, fit: 1 };
+
+  setWrap = el => {
+    if (el === this._wrap) return;
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    this._wrap = el;
+    if (!el) return;
+    if (typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(() => this.measure());
+      this._ro.observe(el);
+    }
+    this.measure();
+  };
+
+  componentWillUnmount() { if (this._ro) this._ro.disconnect(); }
+
+  measure() {
+    if (!this._wrap) return;
+    const w = this._wrap.clientWidth;
+    if (!w) return;
+    const fit = Math.min(1, Math.max(0.34, (w - 4) / 1330));
+    if (Math.abs(fit - this.state.fit) > 0.01) this.setState({ fit });
+  }
+
+  setView(v) { this.setState({ view: v }); setTimeout(() => this.measure(), 30); }
+
+  activeIds() {
+    const s = this.state.step;
+    if (s === 0) return null;
+    return NODES.slice(0, s).map(n => n.id);
+  }
+
+  renderVals() {
+    const st = this.state;
+    const plainOn = this.props.showPlainLanguage ?? true;
+    const speed = this.props.pulseSpeed ?? 3.4;
+    const active = this.activeIds();
+    const focusId = st.step === 0 ? null : NODES[st.step - 1].id;
+    const scale = Math.min(1.6, st.fit * st.zoom);
+
+    const tabDefs = [
+      ['concept', 'Concept'],
+      ['flow', 'Full flow'],
+      ['dev', 'Dev workflow'],
+      ['roadmap', 'Roadmap']
+    ];
+    const tabs = tabDefs.map(([id, label]) => {
+      const on = st.view === id;
+      return {
+        label, onClick: () => this.setView(id),
+        bg: on ? 'oklch(0.30 0.04 205)' : 'oklch(0.21 0.012 255)',
+        border: on ? 'oklch(0.52 0.09 205)' : 'oklch(0.32 0.012 255)',
+        color: on ? 'oklch(0.94 0.02 205)' : 'oklch(0.76 0.012 255)'
+      };
+    });
+
+    const nodes = NODES.map(n => {
+      const dim = active && active.indexOf(n.id) === -1;
+      const isFocus = n.id === focusId;
+      const isSel = n.id === st.selected;
+      return {
+        id: n.id, left: n.left, top: n.top, w: n.w, h: n.h,
+        num: n.num, tag: n.tag, title: n.title, sub: n.sub,
+        accent: C[n.kind], bg: TINT[n.kind],
+        border: isSel || isFocus ? C[n.kind] : 'oklch(0.33 0.012 255)',
+        opacity: dim ? 0.22 : 1,
+        shadow: isFocus ? '0 0 0 3px oklch(0.30 0.05 255)' : isSel ? '0 0 0 1px ' + C[n.kind] : 'none',
+        onClick: () => this.setState({ selected: n.id })
+      };
+    });
+
+    const pathVis = PATHS.map(p => {
+      const dim = active && (active.indexOf(p.from) === -1 || active.indexOf(p.to) === -1);
+      return { d: p.d, stroke: 'oklch(0.46 0.012 255)', opacity: dim ? 0.15 : 1 };
+    });
+    const pulsePaths = PATHS.map((p, i) => {
+      const dim = active && (active.indexOf(p.from) === -1 || active.indexOf(p.to) === -1);
+      return {
+        d: p.d, pulse: C[NODES.find(n => n.id === p.from).kind],
+        dur: speed, delay: (i * 0.28).toFixed(2),
+        playState: st.animate ? 'running' : 'paused',
+        opacity: dim ? 0 : st.animate ? 0.9 : 0
+      };
+    });
+
+    const groups = GROUPS.map(g => ({
+      label: g.label, left: g.left, top: g.top, w: g.w, h: g.h,
+      border: 'oklch(0.36 0.03 255)',
+      opacity: 1
+    }));
+
+    const d = NODES.find(n => n.id === st.selected) || NODES[0];
+
+    const conceptCards = [
+      { num: '01', tag: 'THE BRIEF', title: 'One LLM agent takes the brief', body: 'You give the agent a design brief and set the parameters. It turns that into instructions the CHIRP components can act on — and it stays in the loop as the thing everything reports back to.', plain: 'brief + parameters → instruction', kind: 'input' },
+      { num: '02', tag: 'CHIRP', title: 'Components do the work, with reasons', body: 'CHIRP components sit in Grasshopper with preset inputs and outputs; the agent logic lives in between. Each one performs its function and states the reasons for its result.', plain: 'preset in → logic → out + reasons', kind: 'chirp' },
+      { num: '03', tag: 'RIFF', title: 'The broker compiles and publishes', body: 'The RIFF broker collects every component\u2019s reasoning, compiles and parses it into one package, and sends it to a web server. A reviewer opens a link and accepts, rejects, or requests changes.', plain: 'compile → parse → web link', kind: 'riff' },
+      { num: '04', tag: 'THE LOOP', title: 'Decisions go back as JSON', body: 'Those decisions are pushed back to the LLM agent as a JSON file. The agent pushes them on to the CHIRP components and the round runs again, until every change is approved.', plain: 'JSON → LLM → CHIRP → repeat', kind: 'human' }
+    ].map(c => ({ ...c, accent: C[c.kind], bg: TINT[c.kind], border: 'oklch(0.31 0.02 255)' }));
+
+    const conceptStats = [
+      { label: 'What CHIRP is', value: 'Multi-agent logic in Grasshopper, wrapped in preset inputs and outputs.', accent: C.chirp },
+      { label: 'What RIFF adds', value: 'A broker that compiles the reasoning, publishes it to the web, and returns human decisions as JSON.', accent: C.riff },
+      { label: 'What you get', value: 'An approved solution plus the record of every decision that shaped it.', accent: C.out }
+    ];
+
+    return {
+      isConcept: st.view === 'concept', isFlow: st.view === 'flow',
+      isDev: st.view === 'dev', isRoadmap: st.view === 'roadmap',
+      tabs, nodes, paths: pathVis, pulsePaths, groups,
+      conceptCards, conceptStats, devSteps: DEV, phases: PHASES,
+      showPlain: plainOn,
+      scale: scale.toFixed(3),
+      boxW: Math.round(1330 * scale),
+      boxH: Math.round(830 * scale),
+      zoomLabel: Math.round(st.zoom * 100) + '%',
+      zoomIn: () => this.setState(s => ({ zoom: Math.min(2, +(s.zoom + 0.15).toFixed(2)) })),
+      zoomOut: () => this.setState(s => ({ zoom: Math.max(0.5, +(s.zoom - 0.15).toFixed(2)) })),
+      stepLabel: st.step === 0 ? 'All ' + N + ' steps shown' : 'Step ' + st.step + ' of ' + N + ' · ' + NODES[st.step - 1].title,
+      allLabel: st.step === 0 ? 'Start step-through' : 'Show everything',
+      animLabel: st.animate ? 'Pause flow' : 'Play flow',
+      toggleAll: () => this.setState(s => ({ step: s.step === 0 ? 1 : 0, selected: s.step === 0 ? NODES[0].id : s.selected })),
+      toggleFlowAnim: () => this.setState(s => ({ animate: !s.animate })),
+      nextStep: () => this.setState(s => { const n = s.step >= N ? 1 : s.step + 1; return { step: n, selected: NODES[n - 1].id }; }),
+      prevStep: () => this.setState(s => { const n = s.step <= 1 ? N : s.step - 1; return { step: n, selected: NODES[n - 1].id }; }),
+      canvasWrap: this.setWrap,
+      legend: [
+        { label: 'LLM agent', color: C.input }, { label: 'CHIRP', color: C.chirp },
+        { label: 'RIFF', color: C.riff }, { label: 'Human', color: C.human }, { label: 'Result', color: C.out }
+      ],
+      detail: {
+        tag: d.tag, title: d.title, bullets: d.bullets, plain: d.plain, io: d.io,
+        accent: C[d.kind], bg: TINT[d.kind], border: 'oklch(0.33 0.02 255)',
+        hint: 'step ' + d.num + ' · click any box'
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>
