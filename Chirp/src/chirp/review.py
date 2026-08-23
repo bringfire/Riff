@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Literal
+from typing import Callable, Literal, Sequence
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status
@@ -106,6 +106,49 @@ def _snapshot(record: dict[str, object]) -> ReviewResponse:
     return ReviewResponse.model_validate(deepcopy(record))
 
 
+def _new_review_record(packet: ReviewPacket) -> dict[str, object]:
+    return {
+        "packet_id": str(uuid4()),
+        "created_at": datetime.now(timezone.utc),
+        "status": "pending",
+        "packet": deepcopy(packet.model_dump(mode="python")),
+        "decision": None,
+    }
+
+
+ReviewCommit = Callable[[tuple[ReviewResponse, ...]], None]
+
+
+def create_review_batch(
+    packets: Sequence[ReviewPacket],
+    commit: ReviewCommit,
+) -> tuple[ReviewResponse, ...]:
+    if not packets:
+        raise ValueError("review batch must not be empty")
+    records = tuple(_new_review_record(packet) for packet in packets)
+    packet_ids = tuple(str(record["packet_id"]) for record in records)
+
+    with _review_lock:
+        try:
+            for packet_id, record in zip(packet_ids, records):
+                _reviews[packet_id] = deepcopy(record)
+            snapshots = tuple(_snapshot(_reviews[packet_id]) for packet_id in packet_ids)
+            commit(snapshots)
+            return tuple(review.model_copy(deep=True) for review in snapshots)
+        except Exception:
+            for packet_id in packet_ids:
+                _reviews.pop(packet_id, None)
+            raise
+
+
+def read_review_batch(packet_ids: Sequence[str]) -> tuple[ReviewResponse, ...]:
+    with _review_lock:
+        missing = next((packet_id for packet_id in packet_ids if packet_id not in _reviews), None)
+        if missing is not None:
+            raise KeyError(missing)
+        return tuple(_snapshot(_reviews[packet_id]) for packet_id in packet_ids)
+
+
 router = APIRouter()
 
 
@@ -115,14 +158,8 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
 )
 def create_review(packet: ReviewPacket) -> ReviewResponse:
-    packet_id = str(uuid4())
-    record: dict[str, object] = {
-        "packet_id": packet_id,
-        "created_at": datetime.now(timezone.utc),
-        "status": "pending",
-        "packet": deepcopy(packet.model_dump(mode="python")),
-        "decision": None,
-    }
+    record = _new_review_record(packet)
+    packet_id = str(record["packet_id"])
     with _review_lock:
         _reviews[packet_id] = deepcopy(record)
         return _snapshot(_reviews[packet_id])

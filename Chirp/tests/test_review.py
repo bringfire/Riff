@@ -2,11 +2,13 @@
 
 from copy import deepcopy
 import json
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 
 from chirp.server import app
+from chirp.review import ReviewPacket, create_review_batch, read_review_batch
 
 
 client = TestClient(app)
@@ -177,3 +179,65 @@ def test_unknown_packet_returns_404(operation: str):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Review packet not found"}
+
+
+def test_create_review_batch_commits_in_packet_order(valid_packet, monkeypatch):
+    ids = iter([
+        UUID("00000000-0000-0000-0000-000000000101"),
+        UUID("00000000-0000-0000-0000-000000000102"),
+    ])
+    monkeypatch.setattr("chirp.review.uuid4", lambda: next(ids))
+    packets = (
+        ReviewPacket.model_validate(valid_packet),
+        ReviewPacket.model_validate({
+            **valid_packet,
+            "provenance": {
+                **valid_packet["provenance"],
+                "component_id": "second-component",
+            },
+        }),
+    )
+    committed = []
+
+    result = create_review_batch(packets, lambda reviews: committed.append(reviews))
+
+    assert tuple(review.packet_id for review in result) == (
+        "00000000-0000-0000-0000-000000000101",
+        "00000000-0000-0000-0000-000000000102",
+    )
+    assert committed == [result]
+    assert all(review.status == "pending" for review in result)
+
+
+def test_create_review_batch_rolls_back_every_record_when_commit_fails(
+    valid_packet, monkeypatch
+):
+    packet_id = "00000000-0000-0000-0000-000000000103"
+    monkeypatch.setattr("chirp.review.uuid4", lambda: UUID(packet_id))
+
+    def fail(_reviews):
+        raise RuntimeError("publication failed")
+
+    with pytest.raises(RuntimeError, match="publication failed"):
+        create_review_batch(
+            (ReviewPacket.model_validate(valid_packet),),
+            fail,
+        )
+
+    with pytest.raises(KeyError, match=packet_id):
+        read_review_batch((packet_id,))
+
+
+def test_read_review_batch_returns_defensive_snapshots(valid_packet, monkeypatch):
+    packet_id = "00000000-0000-0000-0000-000000000104"
+    monkeypatch.setattr("chirp.review.uuid4", lambda: UUID(packet_id))
+    create_review_batch(
+        (ReviewPacket.model_validate(valid_packet),),
+        lambda _reviews: None,
+    )
+
+    first = read_review_batch((packet_id,))
+    first[0].packet.payload["tampered"] = True
+    second = read_review_batch((packet_id,))
+
+    assert "tampered" not in second[0].packet.payload
