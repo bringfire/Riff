@@ -300,8 +300,50 @@ COMPACT VALID EXAMPLE:
 """
 
 
+def _has_supported_conflicts(node: Mapping[str, object]) -> bool:
+    packet = node["reasoning_packet"]
+    uncertainties = packet["uncertainties"]
+    conflicts = packet["payload"].get("conflicts")
+    return bool(uncertainties) or (
+        isinstance(conflicts, list)
+        and bool(conflicts)
+        and all(isinstance(item, str) for item in conflicts)
+    )
+
+
+def _fallback_templates(node: Mapping[str, object]) -> list[TemplateId]:
+    role = str(node["role"]).strip().casefold()
+    has_conflicts = _has_supported_conflicts(node)
+    if role == "planner":
+        templates: list[TemplateId] = ["proposal_details", "node_reasoning"]
+        if has_conflicts:
+            templates.append("conflicts_uncertainties")
+        return templates + ["provenance", "human_review"]
+    if role == "critic":
+        templates = ["conflicts_uncertainties"] if has_conflicts else []
+        return templates + [
+            "node_reasoning", "proposal_details", "provenance", "human_review"
+        ]
+    return ["node_reasoning", "proposal_details", "provenance", "human_review"]
+
+
 def _build_fallback(snapshot: Mapping[str, object]) -> PresentationResult:
-    raise RuntimeError("fallback not implemented")
+    node_ids = [str(node["node_id"]) for node in snapshot["nodes"]]
+    sections = [_mandatory_section("run_summary", node_ids)]
+    for node in snapshot["nodes"]:
+        node_id = str(node["node_id"])
+        sections.extend(
+            _mandatory_section(template, [node_id])
+            for template in _fallback_templates(node)
+        )
+    return PresentationResult(
+        presentation_source="fallback",
+        view_model=ReviewViewModel(
+            snapshot_id=str(snapshot["snapshot_id"]),
+            sections=sections,
+        ),
+        riff_annotations=[],
+    )
 
 
 class RiffPresenter:
