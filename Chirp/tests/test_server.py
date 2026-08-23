@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from chirp.server import app
@@ -268,3 +269,28 @@ def test_presenter_javascript_validates_decision_before_local_update():
     assert 'reject: "rejected"' in source
     assert update in source
     assert source.index(validation) < source.index(update)
+
+
+def test_riff_snapshot_routes_and_existing_routes_are_registered():
+    paths = {route.path for route in app.routes}
+    assert "/api/riff/snapshots" in paths
+    assert "/api/riff/snapshots/{snapshot_id}" in paths
+    assert "/api/riff/snapshots/{snapshot_id}/matrix" in paths
+    assert "/reviews" in paths
+    assert "/reviews/{packet_id}" in paths
+    assert "/reviews/{packet_id}/decision" in paths
+    assert "/chirp/call" in paths
+
+
+@pytest.mark.parametrize(
+    ("path", "content_type"),
+    [
+        ("/riff/presenter.html?snapshot_id=demo", "text/html"),
+        ("/riff/presenter.js", "javascript"),
+        ("/riff/presenter.css", "text/css"),
+    ],
+)
+def test_riff_presenter_static_files_are_served(path, content_type):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert content_type in response.headers["content-type"]
