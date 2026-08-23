@@ -5,6 +5,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import json
 from threading import Event, Lock
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
@@ -216,3 +217,234 @@ def test_invalid_snapshot_is_validated_before_snapshot_id_lookup(
     response = snapshot_client.post("/api/riff/snapshots", json=invalid)
     assert response.status_code == 422
     assert fake_presenter.calls == 1
+
+
+class BlockingPresenter(FakePresenter):
+    def __init__(self):
+        super().__init__()
+        self.entered = Event()
+        self.release = Event()
+        self._call_lock = Lock()
+
+    def present(self, snapshot):
+        with self._call_lock:
+            self.calls += 1
+        self.entered.set()
+        if not self.release.wait(timeout=2):
+            raise AssertionError("owner release guard expired")
+        self.calls -= 1
+        try:
+            return super().present(snapshot)
+        finally:
+            self.calls += 0
+
+
+class WaiterAwareSnapshotService(SnapshotService):
+    def __init__(self, presenter):
+        super().__init__(presenter)
+        self.waiter_entered = Event()
+
+    def _wait_for_owner(self, snapshot_id, in_flight):
+        self.waiter_entered.set()
+        return super()._wait_for_owner(snapshot_id, in_flight)
+
+
+def _client_for(service):
+    app = FastAPI()
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.include_router(review_router)
+    app.include_router(create_riff_router(service))
+    return TestClient(app)
+
+
+def test_concurrent_identical_imports_call_presenter_and_review_batch_once(
+    valid_snapshot, monkeypatch
+):
+    presenter = BlockingPresenter()
+    service = WaiterAwareSnapshotService(presenter)
+    client = _client_for(service)
+    import chirp.riff_snapshot as module
+    original = module.create_review_batch
+    batch_calls = 0
+    count_lock = Lock()
+
+    def counted(*args, **kwargs):
+        nonlocal batch_calls
+        with count_lock:
+            batch_calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "create_review_batch", counted)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner = pool.submit(client.post, "/api/riff/snapshots", json=valid_snapshot)
+        assert presenter.entered.wait(timeout=2)
+        waiter = pool.submit(client.post, "/api/riff/snapshots", json=valid_snapshot)
+        assert service.waiter_entered.wait(timeout=2)
+        presenter.release.set()
+        responses = [owner.result(timeout=2), waiter.result(timeout=2)]
+    assert sorted(response.status_code for response in responses) == [200, 201]
+    assert presenter.calls == 1
+    assert batch_calls == 1
+    assert responses[0].json()["node_reviews"] == responses[1].json()["node_reviews"]
+
+
+def test_different_content_conflicts_while_original_import_is_in_flight(valid_model):
+    presenter = BlockingPresenter()
+    service = WaiterAwareSnapshotService(presenter)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner = pool.submit(service.import_snapshot, valid_model)
+        assert presenter.entered.wait(timeout=2)
+        changed = valid_model.model_copy(deep=True)
+        changed.nodes[0].reasoning_packet.proposal = "different"
+        with pytest.raises(SnapshotConflictError):
+            service.import_snapshot(changed)
+        presenter.release.set()
+        owner.result(timeout=2)
+
+
+def test_identical_waiter_is_released_after_owner_failure(valid_model):
+    class FailingBlockingPresenter(BlockingPresenter):
+        def present(self, snapshot):
+            super().present(snapshot)
+            raise RuntimeError("presenter failed")
+
+    presenter = FailingBlockingPresenter()
+    service = WaiterAwareSnapshotService(presenter)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner = pool.submit(service.import_snapshot, valid_model)
+        assert presenter.entered.wait(timeout=2)
+        waiter = pool.submit(service.import_snapshot, valid_model)
+        assert service.waiter_entered.wait(timeout=2)
+        presenter.release.set()
+        with pytest.raises(SnapshotImportError): owner.result(timeout=2)
+        with pytest.raises(SnapshotImportError): waiter.result(timeout=2)
+
+
+def test_identical_waiter_is_released_after_publication_callback_failure(
+    valid_model, monkeypatch
+):
+    presenter = BlockingPresenter()
+    service = WaiterAwareSnapshotService(presenter)
+    monkeypatch.setattr(
+        service,
+        "_commit_bundle_locked",
+        lambda prepared, reviews: (_ for _ in ()).throw(RuntimeError("publish")),
+    )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner = pool.submit(service.import_snapshot, valid_model)
+        assert presenter.entered.wait(timeout=2)
+        waiter = pool.submit(service.import_snapshot, valid_model)
+        assert service.waiter_entered.wait(timeout=2)
+        presenter.release.set()
+        with pytest.raises(SnapshotImportError): owner.result(timeout=2)
+        with pytest.raises(SnapshotImportError): waiter.result(timeout=2)
+
+
+def test_explicit_retry_after_clean_failure_may_invoke_presenter_again(valid_model):
+    class FailOncePresenter(FakePresenter):
+        def present(self, snapshot):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("first failure")
+            self.calls -= 1
+            return super().present(snapshot)
+
+    presenter = FailOncePresenter()
+    service = SnapshotService(presenter)
+    with pytest.raises(SnapshotImportError):
+        service.import_snapshot(valid_model)
+    assert service.import_snapshot(valid_model).created is True
+    assert presenter.calls == 2
+
+
+@pytest.mark.parametrize("failure_point", ["before", "after"])
+def test_callback_failure_leaves_no_residue(
+    service, valid_model, monkeypatch, failure_point
+):
+    packet_ids = [
+        "00000000-0000-0000-0000-000000000201",
+        "00000000-0000-0000-0000-000000000202",
+    ]
+    ids = iter(UUID(value) for value in packet_ids)
+    monkeypatch.setattr("chirp.review.uuid4", lambda: next(ids))
+    original = service._commit_bundle_locked
+
+    if failure_point == "before":
+        def fail(prepared, reviews):
+            raise RuntimeError("before")
+    else:
+        def fail(prepared, reviews):
+            original(prepared, reviews)
+            raise RuntimeError("after")
+    monkeypatch.setattr(service, "_commit_bundle_locked", fail)
+
+    with pytest.raises(SnapshotImportError):
+        service.import_snapshot(valid_model)
+    with pytest.raises(SnapshotNotFoundError):
+        service.get_snapshot(valid_model.snapshot_id)
+    with pytest.raises(KeyError):
+        read_review_batch(tuple(packet_ids))
+
+
+def test_matrix_preserves_node_order_and_joins_current_decisions(snapshot_client, valid_snapshot):
+    created = snapshot_client.post("/api/riff/snapshots", json=valid_snapshot).json()
+    first, second = created["node_reviews"]
+    snapshot_client.post(f"/reviews/{first['packet_id']}/decision", json={"action": "accept", "reviewer": "Ada"})
+    snapshot_client.post(f"/reviews/{second['packet_id']}/decision", json={"action": "request_correction", "reviewer": "Lin", "note": "Clarify boundary"})
+    response = snapshot_client.get(f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix")
+    assert response.status_code == 200
+    matrix = response.json()
+    assert [node["node_id"] for node in matrix["nodes"]] == ["planner-node", "critic-node"]
+    assert [node["review"]["status"] for node in matrix["nodes"]] == ["accepted", "correction_requested"]
+    assert matrix["nodes"][1]["review"]["decision"]["reviewer"] == "Lin"
+    assert matrix["nodes"][1]["review"]["decision"]["note"] == "Clarify boundary"
+
+
+def test_matrix_review_complete_is_false_while_any_node_is_pending(snapshot_client, valid_snapshot):
+    created = snapshot_client.post("/api/riff/snapshots", json=valid_snapshot).json()
+    packet_id = created["node_reviews"][0]["packet_id"]
+    snapshot_client.post(f"/reviews/{packet_id}/decision", json={"action": "accept", "reviewer": "Ada"})
+    matrix = snapshot_client.get(f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix").json()
+    assert matrix["review_complete"] is False
+
+
+def test_matrix_review_complete_is_true_when_every_node_is_terminal(snapshot_client, valid_snapshot):
+    created = snapshot_client.post("/api/riff/snapshots", json=valid_snapshot).json()
+    actions = [
+        {"action": "accept", "reviewer": "Ada"},
+        {"action": "reject", "reviewer": "Lin", "note": "Stop"},
+    ]
+    for mapping, decision in zip(created["node_reviews"], actions):
+        snapshot_client.post(f"/reviews/{mapping['packet_id']}/decision", json=decision)
+    matrix = snapshot_client.get(f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix").json()
+    assert matrix["review_complete"] is True
+
+
+def test_matrix_exports_do_not_mutate_reasoning_or_annotations(snapshot_client, valid_snapshot):
+    created = snapshot_client.post("/api/riff/snapshots", json=valid_snapshot).json()
+    first = snapshot_client.get(f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix").json()
+    second = snapshot_client.get(f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix").json()
+    assert first["nodes"][0]["reasoning_packet"] == valid_snapshot["nodes"][0]["reasoning_packet"]
+    assert second["nodes"][0]["reasoning_packet"] == created["snapshot"]["nodes"][0]["reasoning_packet"]
+    assert first["riff_annotations"] == second["riff_annotations"] == []
+
+
+def test_repeated_matrix_exports_differ_only_by_exported_at(snapshot_client, valid_snapshot):
+    snapshot_client.post("/api/riff/snapshots", json=valid_snapshot)
+    first = snapshot_client.get(f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix").json()
+    second = snapshot_client.get(f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix").json()
+    first.pop("exported_at")
+    second.pop("exported_at")
+    assert first == second
+
+
+def test_snapshot_reads_are_defensive_copies(service, valid_model):
+    service.import_snapshot(valid_model)
+    first = service.get_snapshot(valid_model.snapshot_id)
+    first.snapshot.nodes[0].reasoning_packet.payload["tampered"] = True
+    second = service.get_snapshot(valid_model.snapshot_id)
+    assert "tampered" not in second.snapshot.nodes[0].reasoning_packet.payload
+
+
+def test_get_unknown_matrix_returns_404(snapshot_client):
+    assert snapshot_client.get("/api/riff/snapshots/missing/matrix").status_code == 404

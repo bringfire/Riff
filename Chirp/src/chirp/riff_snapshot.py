@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import hashlib
 import json
-from threading import Lock
+from threading import Event, Lock
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -19,6 +19,7 @@ from chirp.review import (
     ReviewResponse,
     ReviewStatus,
     create_review_batch,
+    read_review_batch,
 )
 from chirp.riff_presenter import (
     PresentationResult,
@@ -169,47 +170,118 @@ class _CompletedBundle:
     response: SnapshotPresentationResponse
 
 
+@dataclass
+class _InFlight:
+    fingerprint: str
+    event: Event = field(default_factory=Event)
+    failed: bool = False
+
+
 class SnapshotService:
     def __init__(self, presenter: RiffPresenter) -> None:
         self._presenter = presenter
         self._lock = Lock()
         self._completed: dict[str, _CompletedBundle] = {}
+        self._in_flight: dict[str, _InFlight] = {}
 
     def import_snapshot(self, snapshot: CanvasReasoningSnapshot) -> _ImportResult:
         fingerprint = _fingerprint(snapshot)
         with self._lock:
-            existing = self._completed.get(snapshot.snapshot_id)
-            if existing is not None:
-                if existing.fingerprint != fingerprint:
+            completed = self._completed.get(snapshot.snapshot_id)
+            if completed is not None:
+                if completed.fingerprint != fingerprint:
                     raise SnapshotConflictError(snapshot.snapshot_id)
-                return _ImportResult(deepcopy(existing.response), created=False)
-
-        presentation = self._presenter.present(deepcopy(_snapshot_json(snapshot)))
-        prepared = _PreparedPublication(
-            snapshot=snapshot.model_copy(deep=True),
-            fingerprint=fingerprint,
-            presentation=presentation.model_copy(deep=True),
-        )
-        with self._lock:
-            existing = self._completed.get(snapshot.snapshot_id)
-            if existing is not None:
-                if existing.fingerprint != fingerprint:
+                return _ImportResult(deepcopy(completed.response), created=False)
+            active = self._in_flight.get(snapshot.snapshot_id)
+            if active is not None:
+                if active.fingerprint != fingerprint:
                     raise SnapshotConflictError(snapshot.snapshot_id)
-                return _ImportResult(deepcopy(existing.response), created=False)
-            published: list[SnapshotPresentationResponse] = []
+                waiter = active
+                owner = None
+            else:
+                owner = _InFlight(fingerprint=fingerprint)
+                self._in_flight[snapshot.snapshot_id] = owner
+                waiter = None
 
-            def commit(reviews: tuple[ReviewResponse, ...]) -> None:
-                published.append(self._commit_bundle_locked(prepared, reviews))
+        if waiter is not None:
+            return self._wait_for_owner(snapshot.snapshot_id, waiter)
 
+        assert owner is not None
+        try:
+            presentation = self._presenter.present(deepcopy(_snapshot_json(snapshot)))
+            prepared = _PreparedPublication(
+                snapshot=snapshot.model_copy(deep=True),
+                fingerprint=fingerprint,
+                presentation=presentation.model_copy(deep=True),
+            )
+        except Exception as exc:
             try:
-                create_review_batch(
-                    tuple(node.reasoning_packet for node in snapshot.nodes),
-                    commit,
-                )
-            except Exception as exc:
-                self._completed.pop(snapshot.snapshot_id, None)
-                raise SnapshotImportError(snapshot.snapshot_id) from exc
-            return _ImportResult(response=published[0], created=True)
+                with self._lock:
+                    owner.failed = True
+                    self._in_flight.pop(snapshot.snapshot_id, None)
+            finally:
+                owner.event.set()
+            raise SnapshotImportError(snapshot.snapshot_id) from exc
+
+        return self._publish_owner(prepared, owner)
+
+    def _wait_for_owner(
+        self,
+        snapshot_id: str,
+        in_flight: _InFlight,
+    ) -> _ImportResult:
+        in_flight.event.wait()
+        if in_flight.failed:
+            raise SnapshotImportError(snapshot_id)
+        with self._lock:
+            bundle = self._completed.get(snapshot_id)
+            if bundle is None:
+                raise SnapshotImportError(snapshot_id)
+            return _ImportResult(response=deepcopy(bundle.response), created=False)
+
+    def _recheck_owner_locked(
+        self,
+        snapshot_id: str,
+        fingerprint: str,
+        owner: _InFlight,
+    ) -> None:
+        if self._in_flight.get(snapshot_id) is not owner:
+            raise SnapshotImportError(snapshot_id)
+        if owner.fingerprint != fingerprint or snapshot_id in self._completed:
+            raise SnapshotImportError(snapshot_id)
+
+    def _publish_owner(
+        self,
+        prepared: _PreparedPublication,
+        owner: _InFlight,
+    ) -> _ImportResult:
+        snapshot_id = prepared.snapshot.snapshot_id
+        published: list[SnapshotPresentationResponse] = []
+        publication_error: Exception | None = None
+
+        def commit(reviews: tuple[ReviewResponse, ...]) -> None:
+            published.append(self._commit_bundle_locked(prepared, reviews))
+
+        try:
+            with self._lock:
+                try:
+                    self._recheck_owner_locked(snapshot_id, prepared.fingerprint, owner)
+                    create_review_batch(
+                        tuple(node.reasoning_packet for node in prepared.snapshot.nodes),
+                        commit,
+                    )
+                    self._in_flight.pop(snapshot_id, None)
+                except Exception as exc:
+                    self._completed.pop(snapshot_id, None)
+                    owner.failed = True
+                    self._in_flight.pop(snapshot_id, None)
+                    publication_error = exc
+        finally:
+            owner.event.set()
+
+        if publication_error is not None:
+            raise SnapshotImportError(snapshot_id) from publication_error
+        return _ImportResult(response=published[0], created=True)
 
     def _commit_bundle_locked(
         self,
@@ -242,6 +314,49 @@ class SnapshotService:
                 raise SnapshotNotFoundError(snapshot_id)
             return deepcopy(bundle.response)
 
+    def build_matrix(self, snapshot_id: str) -> ReviewMatrix:
+        with self._lock:
+            bundle = self._completed.get(snapshot_id)
+            if bundle is None:
+                raise SnapshotNotFoundError(snapshot_id)
+            response = deepcopy(bundle.response)
+            reviews = read_review_batch(
+                tuple(mapping.packet_id for mapping in response.node_reviews)
+            )
+            review_by_packet = {review.packet_id: review for review in reviews}
+            nodes = []
+            for node, mapping in zip(response.snapshot.nodes, response.node_reviews):
+                review = review_by_packet[mapping.packet_id]
+                nodes.append(ReviewMatrixNode(
+                    node_id=node.node_id,
+                    role=node.role,
+                    display_label=node.display_label,
+                    upstream_node_ids=deepcopy(node.upstream_node_ids),
+                    reasoning_packet=node.reasoning_packet.model_copy(deep=True),
+                    review=ReviewMatrixReview(
+                        packet_id=review.packet_id,
+                        created_at=review.created_at,
+                        status=review.status,
+                        decision=(
+                            review.decision.model_copy(deep=True)
+                            if review.decision is not None
+                            else None
+                        ),
+                    ),
+                ))
+            return ReviewMatrix(
+                schema_version="1.0",
+                canvas_id=response.snapshot.canvas_id,
+                snapshot_id=response.snapshot.snapshot_id,
+                run_id=response.snapshot.run_id,
+                captured_at=response.snapshot.captured_at,
+                exported_at=datetime.now(timezone.utc),
+                presentation_source=response.presentation_source,
+                review_complete=all(review.status != "pending" for review in reviews),
+                riff_annotations=deepcopy(response.riff_annotations),
+                nodes=nodes,
+            )
+
 
 def create_riff_router(service: SnapshotService) -> APIRouter:
     router = APIRouter(prefix="/api/riff")
@@ -271,6 +386,13 @@ def create_riff_router(service: SnapshotService) -> APIRouter:
     def get_snapshot(snapshot_id: str) -> SnapshotPresentationResponse:
         try:
             return service.get_snapshot(snapshot_id)
+        except SnapshotNotFoundError:
+            raise HTTPException(status_code=404, detail="Riff snapshot not found")
+
+    @router.get("/snapshots/{snapshot_id}/matrix", response_model=ReviewMatrix)
+    def get_matrix(snapshot_id: str) -> ReviewMatrix:
+        try:
+            return service.build_matrix(snapshot_id)
         except SnapshotNotFoundError:
             raise HTTPException(status_code=404, detail="Riff snapshot not found")
 
