@@ -1,0 +1,6 @@
+# Rhino session lock files — transient, created while a .3dm is open
+*.rhl
+
+# Python bytecode
+__pycache__/
+*.pyc
