@@ -121,7 +121,7 @@ Note that FAR, height, coverage, and setback standards are **not** in the GIS da
 
 This is a hackathon prototype. It proves one round trip end to end.
 
-**Built:** review store with terminal decisions and atomic batches · intelligent presenter with grounded output and deterministic fallback · snapshot import with idempotency, concurrency handling, and rollback · Review Matrix export · presenter web app · 131 Python tests.
+**Built:** review store with terminal decisions and atomic batches · intelligent presenter with grounded output and deterministic fallback · snapshot import with idempotency, concurrency handling, and rollback · Review Matrix export · presenter web app.
 
 **Deliberately out of scope for this slice:** geometry transport or gating · automated Grasshopper snapshot capture · a pending-review queue endpoint · database persistence · authentication and multiple reviewers · WebSockets and streaming.
 
