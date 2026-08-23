@@ -20,7 +20,8 @@
     nodeById: Object.create(null),
     annotationById: Object.create(null),
     reviewByNodeId: Object.create(null),
-    submitting: Object.create(null)
+    submitting: Object.create(null),
+    historyFilter: "all"
   };
 
   function elem(tag, className, text) {
@@ -380,16 +381,26 @@
   }
 
   function showView(viewName) {
-    var aboutIsActive = viewName === "about";
-    var aboutButton = document.getElementById("showAbout");
-    var workbenchButton = document.getElementById("showWorkbench");
+    var views = ["about", "connect", "workbench", "history"];
+    if (views.indexOf(viewName) === -1) {
+      throw new Error("Unknown presenter view.");
+    }
 
-    document.getElementById("aboutPanel").hidden = !aboutIsActive;
-    document.getElementById("workbenchPanel").hidden = aboutIsActive;
-    aboutButton.classList.toggle("pill-active", aboutIsActive);
-    workbenchButton.classList.toggle("pill-active", !aboutIsActive);
-    aboutButton.setAttribute("aria-selected", String(aboutIsActive));
-    workbenchButton.setAttribute("aria-selected", String(!aboutIsActive));
+    ["about", "connect", "history"].forEach(function (name) {
+      document.getElementById(name + "Panel").hidden = name !== viewName;
+    });
+    ["workbenchQueue", "workbenchDetail", "workbenchTools"].forEach(function (id) {
+      document.getElementById(id).hidden = viewName !== "workbench";
+    });
+    views.forEach(function (name) {
+      var button = document.getElementById(
+        "show" + name.charAt(0).toUpperCase() + name.slice(1)
+      );
+      var isActive = name === viewName;
+      button.classList.toggle("pill-active", isActive);
+      button.setAttribute("aria-selected", String(isActive));
+    });
+    if (viewName === "history") { renderHistory(); }
   }
 
   function oneNode(section) {
@@ -569,6 +580,72 @@
       "All node reviews are terminal" : "Review in progress";
     document.getElementById("reviewCompletionDot").className =
       "status-dot " + (state.matrix.review_complete ? "status-accepted" : "status-pending");
+    document.getElementById("connectionSnapshot").textContent = snapshot.snapshot_id;
+    document.getElementById("connectionLabel").textContent = "Live";
+    document.getElementById("connectionHint").textContent =
+      "Connected to the current Riff snapshot";
+    document.getElementById("connectionDot").className =
+      "status-dot status-accepted";
+  }
+
+  function renderHistory() {
+    var container = document.getElementById("historyList");
+    container.replaceChildren();
+    if (!state.presentation) {
+      container.appendChild(elem("p", "history-empty", "No snapshot is loaded."));
+      return;
+    }
+
+    var terminal = state.presentation.snapshot.nodes.filter(function (node) {
+      var review = state.reviewByNodeId[node.node_id];
+      return review && review.status !== "pending" &&
+        (state.historyFilter === "all" || review.status === state.historyFilter);
+    });
+
+    terminal.forEach(function (node) {
+      var review = state.reviewByNodeId[node.node_id];
+      var decision = review.decision;
+      var cardNode = elem("article", "history-card");
+      var head = elem("div", "history-card-head");
+      head.appendChild(elem("code", "node-id", review.packet_id));
+      head.appendChild(elem("span", "history-status status-" + review.status, review.status));
+      cardNode.appendChild(head);
+      cardNode.appendChild(elem("h3", null, node.reasoning_packet.proposal));
+      cardNode.appendChild(elem(
+        "p",
+        null,
+        node.reasoning_packet.contributor + " · reviewed by " +
+          decision.reviewer + " · " + decision.decided_at
+      ));
+      if (decision.note) {
+        cardNode.appendChild(elem("p", "history-note", "“" + decision.note + "”"));
+      }
+      container.appendChild(cardNode);
+    });
+
+    if (!terminal.length) {
+      container.appendChild(elem(
+        "p",
+        "history-empty",
+        "No decided packets yet for this filter."
+      ));
+    }
+  }
+
+  function setHistoryFilter(filter) {
+    if (["all", "accepted", "correction_requested", "rejected"].indexOf(filter) === -1) {
+      throw new Error("Unknown history filter.");
+    }
+    state.historyFilter = filter;
+    Array.prototype.forEach.call(
+      document.querySelectorAll("[data-history-filter]"),
+      function (button) {
+        var isActive = button.getAttribute("data-history-filter") === filter;
+        button.classList.toggle("pill-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      }
+    );
+    renderHistory();
   }
 
   function renderPresentation() {
@@ -586,6 +663,7 @@
     container.hidden = false;
     renderNodeIndex();
     renderSnapshotMeta();
+    renderHistory();
   }
 
   function formLabel(text, control) {
@@ -784,17 +862,39 @@
       state.matrix = null;
       document.getElementById("loadingState").hidden = true;
       document.getElementById("presentation").hidden = true;
+      document.getElementById("connectionLabel").textContent = "Offline";
+      document.getElementById("connectionHint").textContent = "Snapshot API unavailable";
+      document.getElementById("connectionDot").className =
+        "status-dot status-rejected";
       showError("Could not load the Riff presentation: " + error.message);
     });
   }
 
+  document.getElementById("serviceUrl").value = window.location.origin;
   document.getElementById("refreshMatrix").addEventListener("click", refreshMatrix);
   document.getElementById("downloadMatrix").addEventListener("click", downloadMatrix);
   document.getElementById("showAbout").addEventListener("click", function () {
     showView("about");
   });
+  document.getElementById("showConnect").addEventListener("click", function () {
+    showView("connect");
+  });
   document.getElementById("showWorkbench").addEventListener("click", function () {
     showView("workbench");
   });
+  document.getElementById("showHistory").addEventListener("click", function () {
+    showView("history");
+  });
+  document.getElementById("enterWorkbench").addEventListener("click", function () {
+    showView("workbench");
+  });
+  Array.prototype.forEach.call(
+    document.querySelectorAll("[data-history-filter]"),
+    function (button) {
+      button.addEventListener("click", function () {
+        setHistoryFilter(button.getAttribute("data-history-filter"));
+      });
+    }
+  );
   document.addEventListener("DOMContentLoaded", loadPresentation);
 }());

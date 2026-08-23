@@ -292,8 +292,217 @@ pre {
   margin: 0 auto;
 }
 
-#aboutPanel {
-  padding-top: 32px;
+.full-view {
+  grid-column: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.about-view {
+  overflow: hidden;
+}
+
+.about-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 640px;
+  border: 0;
+  background: var(--bg);
+}
+
+.connect-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.connect-card {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.connect-card h2,
+.connect-card p,
+.history-heading h2,
+.history-heading p {
+  margin: 0;
+}
+
+.connect-card h2,
+.history-heading h2 {
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.connect-card p:not(.source-label) {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.connect-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.connect-field input {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-deep);
+  color: var(--text-soft);
+  padding: 12px 14px;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 13.5px;
+  text-transform: none;
+}
+
+.connect-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.connect-status-card > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.connect-status-card strong {
+  font-size: 13.5px;
+}
+
+.connect-status-card span:not(.status-dot) {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.connect-status-card code {
+  color: var(--text-soft);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.connection-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.primary-action {
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--cyan);
+  color: var(--surface-deep);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.history-view {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px 32px 40px;
+}
+
+.history-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.history-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.history-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.history-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--surface-deep);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-card h3,
+.history-card p {
+  margin: 0;
+}
+
+.history-card h3 {
+  font-size: 15px;
+}
+
+.history-card p {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.history-note {
+  color: var(--text-soft) !important;
+  font-size: 13px !important;
+}
+
+.history-empty {
+  padding: 60px 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
 }
 
 .state-message,
@@ -680,6 +889,10 @@ details pre {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .full-view {
+    flex: 1;
+  }
 }
 
 @media (max-width: 620px) {
@@ -695,6 +908,18 @@ details pre {
   .top-actions,
   .pill {
     width: 100%;
+  }
+
+  .view-tabs,
+  .history-filters {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .connect-view,
+  .history-view {
+    padding: 20px;
   }
 
   .tools-pane,

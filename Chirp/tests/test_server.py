@@ -228,8 +228,8 @@ def test_presenter_frontend_contract_is_ready_for_snapshot_backend():
     ):
         assert f'id="{element_id}"' in html
 
-    assert 'src="presenter.js?v=nav-tabs-1"' in html
-    assert 'href="presenter.css?v=nav-tabs-1"' in html
+    assert 'src="presenter.js?v=complete-tabs-1"' in html
+    assert 'href="presenter.css?v=complete-tabs-1"' in html
     assert '"/api/riff/snapshots/"' in javascript
     assert '"/reviews/"' in javascript
     assert "new URLSearchParams(window.location.search)" in javascript
@@ -283,8 +283,34 @@ def test_presenter_navigation_stays_inside_the_trusted_shell():
     assert 'id="showWorkbench"' in html
     assert 'id="aboutPanel"' in html
     assert 'id="workbenchPanel"' in html
-    assert 'href="presenter.css?v=nav-tabs-1"' in html
-    assert 'src="presenter.js?v=nav-tabs-1"' in html
+    assert 'href="presenter.css?v=complete-tabs-1"' in html
+    assert 'src="presenter.js?v=complete-tabs-1"' in html
+
+
+def test_presenter_preserves_all_git_tejal_views_and_about_content():
+    response = client.get(
+        "/riff/presenter.html?snapshot_id=demo-snapshot-001"
+    )
+    assert response.status_code == 200
+
+    html = response.text
+    for element_id in (
+        "showAbout",
+        "showConnect",
+        "showWorkbench",
+        "showHistory",
+        "aboutPanel",
+        "connectPanel",
+        "workbenchPanel",
+        "historyPanel",
+    ):
+        assert f'id="{element_id}"' in html
+
+    assert 'src="uploads/RIFF-Workflow-share.html"' in html
+    about = client.get("/riff/uploads/RIFF-Workflow-share.html")
+    assert about.status_code == 200
+    assert "AEC Tech Hackathon" in about.text
+    assert "The broker compiles and publishes" in about.text
 
 
 def test_riff_snapshot_routes_and_existing_routes_are_registered():

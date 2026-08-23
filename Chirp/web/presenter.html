@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Riff reasoning review</title>
-  <link rel="stylesheet" href="presenter.css?v=nav-tabs-1">
+  <link rel="stylesheet" href="presenter.css?v=complete-tabs-1">
 </head>
 <body>
   <!-- Visual baseline: GitTejal commit 9169891. -->
@@ -25,6 +25,14 @@
             aria-controls="aboutPanel"
           >About</button>
           <button
+            id="showConnect"
+            class="pill"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="connectPanel"
+          >Connect</button>
+          <button
             id="showWorkbench"
             class="pill pill-active"
             type="button"
@@ -32,6 +40,14 @@
             aria-selected="true"
             aria-controls="workbenchPanel"
           >Workbench</button>
+          <button
+            id="showHistory"
+            class="pill"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="historyPanel"
+          >History</button>
         </div>
         <button id="refreshMatrix" class="pill" type="button">Refresh reviews</button>
         <button id="downloadMatrix" class="pill" type="button">Download matrix</button>
@@ -39,7 +55,81 @@
     </header>
 
     <main class="workspace">
-      <aside class="queue-pane" aria-labelledby="nodeQueueHeading">
+      <section
+        id="aboutPanel"
+        class="full-view about-view"
+        role="tabpanel"
+        aria-labelledby="showAbout"
+        hidden
+      >
+        <iframe
+          class="about-frame"
+          src="uploads/RIFF-Workflow-share.html"
+          title="Riff workflow overview"
+        ></iframe>
+      </section>
+
+      <section
+        id="connectPanel"
+        class="full-view connect-view"
+        role="tabpanel"
+        aria-labelledby="showConnect"
+        hidden
+      >
+        <div class="connect-card">
+          <div>
+            <p class="source-label">Connection</p>
+            <h2>Connect to Chirp</h2>
+            <p>Riff uses the Chirp snapshot and review APIs served from this same origin.</p>
+          </div>
+          <label class="connect-field">
+            <span>Service URL</span>
+            <input id="serviceUrl" type="text" readonly>
+          </label>
+          <div class="connect-status-card">
+            <div>
+              <strong>Connection</strong>
+              <span id="connectionHint">Loading the current snapshot…</span>
+            </div>
+            <div class="connection-value">
+              <span id="connectionDot" class="status-dot status-pending"></span>
+              <span id="connectionLabel">Checking</span>
+            </div>
+          </div>
+          <div class="connect-status-card">
+            <div>
+              <strong>Snapshot</strong>
+              <span>The presenter reconnects through its snapshot ID.</span>
+            </div>
+            <code id="connectionSnapshot">—</code>
+          </div>
+          <button id="enterWorkbench" class="primary-action" type="button">Enter workbench →</button>
+        </div>
+      </section>
+
+      <section
+        id="historyPanel"
+        class="full-view history-view"
+        role="tabpanel"
+        aria-labelledby="showHistory"
+        hidden
+      >
+        <div class="history-heading">
+          <div>
+            <p class="source-label">Decided packets</p>
+            <h2>Review history</h2>
+          </div>
+          <div class="history-filters" aria-label="History filters">
+            <button class="pill pill-active" type="button" data-history-filter="all" aria-pressed="true">All</button>
+            <button class="pill" type="button" data-history-filter="accepted" aria-pressed="false">Accepted</button>
+            <button class="pill" type="button" data-history-filter="correction_requested" aria-pressed="false">Correction</button>
+            <button class="pill" type="button" data-history-filter="rejected" aria-pressed="false">Rejected</button>
+          </div>
+        </div>
+        <div id="historyList" class="history-list" aria-live="polite"></div>
+      </section>
+
+      <aside id="workbenchQueue" class="queue-pane" aria-labelledby="nodeQueueHeading">
         <div class="pane-heading">
           <span id="nodeQueueHeading">Snapshot nodes</span>
           <span class="live-count"><span class="live-dot"></span><span id="nodeCount">—</span></span>
@@ -47,26 +137,7 @@
         <div id="nodeIndex" class="node-index" aria-live="polite"></div>
       </aside>
 
-      <section class="detail-pane" aria-label="Snapshot presentation">
-        <div
-          id="aboutPanel"
-          class="presentation"
-          role="tabpanel"
-          aria-labelledby="showAbout"
-          hidden
-        >
-          <section class="review-section emphasis-high">
-            <p class="source-label">About Riff</p>
-            <h2>Reasoning stays inspectable through human review.</h2>
-            <p>Riff presents immutable CHIRP reasoning without rewriting it, then keeps Riff assessments and human decisions visibly separate.</p>
-          </section>
-          <section class="review-section">
-            <h2>Trusted by construction</h2>
-            <p>The presenter uses six fixed templates, renders external content as plain text, and accepts only explicit human review actions.</p>
-            <p>Return to Workbench to inspect the current snapshot, record decisions, refresh review state, or download the authoritative Review Matrix.</p>
-          </section>
-        </div>
-
+      <section id="workbenchDetail" class="detail-pane" aria-label="Snapshot presentation">
         <div
           id="workbenchPanel"
           role="tabpanel"
@@ -78,7 +149,7 @@
         </div>
       </section>
 
-      <aside class="tools-pane" aria-labelledby="snapshotHeading">
+      <aside id="workbenchTools" class="tools-pane" aria-labelledby="snapshotHeading">
         <div>
           <div id="snapshotHeading" class="section-label">Snapshot</div>
           <div id="presentationSource" class="source-badge">presentation_source: —</div>
@@ -107,6 +178,6 @@
     </main>
   </div>
 
-  <script src="presenter.js?v=nav-tabs-1"></script>
+  <script src="presenter.js?v=complete-tabs-1"></script>
 </body>
 </html>
