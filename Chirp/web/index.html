@@ -1,109 +1,642 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Riff Review Workbench</title>
-<link rel="stylesheet" href="styles.css">
+<script src="./support.js"></script>
 </head>
 <body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: oklch(0.17 0.012 255); color: oklch(0.93 0.008 90); font-family: 'Space Grotesk', Helvetica, sans-serif; }
+  a { color: oklch(0.75 0.13 205); text-decoration: none; }
+  a:hover { color: oklch(0.85 0.10 205); }
+  button { font-family: inherit; color: inherit; }
+  textarea, input { font-family: inherit; }
+  ::placeholder { color: oklch(0.55 0.012 255); }
+  @keyframes softpulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: oklch(0.32 0.012 255); border-radius: 8px; }
+</style>
+</helmet>
 
-<header class="topbar">
-  <div class="brand">
-    <span class="mark" aria-hidden="true"></span>
-    <h1>Riff</h1>
-    <span class="brand-sub">Review workbench</span>
+<div style="min-height:100vh; display:flex; flex-direction:column; font-family:'Space Grotesk',Helvetica,sans-serif">
+
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; border-bottom:1px solid oklch(0.30 0.012 255); padding:24px 32px 16px">
+    <div style="display:flex; flex-direction:column; gap:6px">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:oklch(0.68 0.02 255)">Human-in-the-loop review</div>
+      <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+        <h1 style="margin:0; font-size:28px; font-weight:600; letter-spacing:-0.02em">RIFF <span style="color:oklch(0.55 0.02 255); font-weight:400; font-size:16px">as an extension of CHIRP</span></h1>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+        <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
   </div>
 
-  <div class="topbar-status">
-    <span id="mockBadge" class="badge badge-mock" hidden>Mock mode</span>
-    <span id="connState" class="conn" data-state="idle">
-      <span class="dot" aria-hidden="true"></span>
-      <span id="connText">Connecting&hellip;</span>
-    </span>
-  </div>
-</header>
-
-<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-
-<main class="layout">
-
-  <!-- ---------- LEFT: pending queue ---------- -->
-  <section class="pane pane-queue" aria-labelledby="queueHeading">
-    <div class="pane-head">
-      <h2 id="queueHeading">Pending</h2>
-      <span id="queueCount" class="count" aria-live="polite">&mdash;</span>
+  <sc-if value="{{ isAbout }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; min-height:0; overflow-y:auto">
+      <iframe ref="{{ aboutIframeRef }}" onLoad="{{ onAboutLoad }}" src="uploads/RIFF-Workflow-share.html" title="Riff workflow overview" style="{{ aboutIframeStyle }}"></iframe>
     </div>
+  </sc-if>
 
-    <div class="pane-body">
-      <p id="queueLoading" class="state state-loading">Loading queue&hellip;</p>
-      <p id="queueEmpty" class="state state-empty" hidden>
-        No packets awaiting review.<br>
-        <span class="state-sub">Submit one from Grasshopper to see it here.</span>
-      </p>
-      <p id="queueError" class="state state-error" hidden></p>
-      <ul id="queueList" class="queue" hidden></ul>
-    </div>
-  </section>
-
-  <!-- ---------- CENTER: packet detail ---------- -->
-  <section class="pane pane-detail" aria-labelledby="detailHeading">
-    <div class="pane-head">
-      <h2 id="detailHeading">Packet</h2>
-      <span id="detailId" class="mono-id"></span>
-    </div>
-
-    <div class="pane-body">
-      <p id="detailEmpty" class="state state-empty">
-        Select a packet from the queue to inspect it.
-      </p>
-      <article id="detail" class="detail" hidden></article>
-    </div>
-  </section>
-
-  <!-- ---------- RIGHT: decision ---------- -->
-  <section class="pane pane-decision" aria-labelledby="decisionHeading">
-    <div class="pane-head">
-      <h2 id="decisionHeading">Decision</h2>
-    </div>
-
-    <div class="pane-body">
-      <p id="decisionEmpty" class="state state-empty">
-        No packet selected.
-      </p>
-
-      <form id="decisionForm" class="decision" hidden>
-        <label class="field">
-          <span class="field-label">Reviewer <span class="req">required</span></span>
-          <input id="reviewer" name="reviewer" type="text" autocomplete="name"
-                 placeholder="Your name">
-        </label>
-
-        <label class="field">
-          <span class="field-label">
-            Note <span id="noteReq" class="req" hidden>required for correction and reject</span>
-          </span>
-          <textarea id="note" name="note" rows="7"
-                    placeholder="Optional for accept. Required to request a correction or reject."></textarea>
-        </label>
-
-        <p id="formError" class="form-error" hidden></p>
-
-        <div class="actions">
-          <button type="button" class="btn btn-accept"  data-action="accept">Accept</button>
-          <button type="button" class="btn btn-correct" data-action="request_correction">Request correction</button>
-          <button type="button" class="btn btn-reject"  data-action="reject">Reject</button>
+  <sc-if value="{{ isConnect }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px">
+      <div style="width:100%; max-width:520px; border:1px solid oklch(0.29 0.012 255); background:oklch(0.20 0.012 255); border-radius:16px; padding:32px; display:flex; flex-direction:column; gap:22px">
+        <div style="display:flex; flex-direction:column; gap:4px">
+          <div style="font-size:19px; font-weight:600">Connect to Chirp</div>
+          <div style="font-size:13px; line-height:1.5; color:oklch(0.68 0.012 255)">Riff talks to the Chirp review API running alongside Grasshopper.</div>
         </div>
 
-        <p class="decision-hint">
-          Every decision is final. A decided packet cannot be revisited.
-        </p>
-      </form>
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.62 0.02 255)">Service URL</div>
+          <div style="display:flex; align-items:center; gap:10px; border:1px solid oklch(0.32 0.012 255); background:oklch(0.16 0.012 255); border-radius:10px; padding:12px 14px">
+            <input value="{{ serviceUrl }}" onChange="{{ onServiceUrlChange }}" placeholder="http://127.0.0.1:9900" style="flex:1; min-width:0; border:none; background:transparent; outline:none; font-family:'IBM Plex Mono',monospace; font-size:13.5px; color:oklch(0.85 0.01 255)" />
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid oklch(0.29 0.012 255); border-radius:10px; padding:12px 14px">
+          <div style="display:flex; flex-direction:column; gap:2px">
+            <div style="font-size:13.5px; font-weight:500">Connection</div>
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">{{ connectionHint }}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <div style="{{ connectionDotStyle }}"></div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:{{ connectionColor }}">{{ connectionLabel }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid oklch(0.29 0.012 255); border-radius:10px; padding:12px 14px">
+          <div style="display:flex; flex-direction:column; gap:2px">
+            <div style="font-size:13.5px; font-weight:500">Mock mode</div>
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">Demo data, no live backend needed</div>
+          </div>
+          <button onClick="{{ toggleMock }}" style="{{ mockToggleStyle }}">
+            <div style="{{ mockKnobStyle }}"></div>
+          </button>
+        </div>
+
+        <button onClick="{{ enterWorkbench }}" style="padding:13px 18px; border-radius:10px; border:none; background:oklch(0.75 0.13 205); color:oklch(0.14 0.01 255); font-size:14px; font-weight:600; cursor:pointer">Enter workbench →</button>
+      </div>
     </div>
-  </section>
+  </sc-if>
 
-</main>
+  <sc-if value="{{ isWorkbench }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; display:flex; gap:0; min-height:0">
 
-<script src="app.js"></script>
+      <div style="width:320px; flex:none; border-right:1px solid oklch(0.29 0.012 255); display:flex; flex-direction:column; min-height:0">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 18px 12px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Pending queue</div>
+          <div style="display:flex; align-items:center; gap:6px">
+            <div style="width:6px; height:6px; border-radius:50%; background:oklch(0.75 0.13 205); animation:softpulse 2s ease-in-out infinite"></div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ pendingCount }}</div>
+          </div>
+        </div>
+
+        <div style="flex:1; overflow-y:auto; padding:0 12px 16px; display:flex; flex-direction:column; gap:8px">
+          <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ pendingPackets }}" as="p" hint-placeholder-count="3">
+              <button onClick="{{ p.onSelect }}" style="{{ p.cardStyle }}">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.60 0.012 255)">{{ p.packet_id }}</div>
+                  <div style="{{ p.dotStyle }}"></div>
+                </div>
+                <div style="font-size:14px; font-weight:600; text-align:left; line-height:1.3">{{ p.role }}</div>
+                <div style="font-size:12px; color:oklch(0.62 0.012 255); text-align:left">{{ p.contributor }} · {{ p.timeLabel }}</div>
+              </button>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ showEmptyQueue }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:28px 14px; text-align:center; display:flex; flex-direction:column; gap:8px; color:oklch(0.55 0.012 255)">
+              <div style="font-size:26px">—</div>
+              <div style="font-size:13px; line-height:1.5">Queue is empty.<br>Waiting for Grasshopper submissions.</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1; overflow-y:auto; padding:24px 28px; display:flex; flex-direction:column; gap:20px; min-width:0">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="display:flex; align-items:center; gap:8px">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:{{ selected.accent }}">{{ selected.role }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:oklch(0.62 0.012 255); border:1px solid oklch(0.32 0.012 255); border-radius:999px; padding:2px 8px">{{ selected.stage }}</div>
+              </div>
+              <div style="font-size:22px; font-weight:600; letter-spacing:-0.01em">{{ selected.proposal }}</div>
+            </div>
+            <div style="{{ selected.statusPillStyle }}">{{ selected.statusLabel }}</div>
+          </div>
+
+          <div style="display:flex; gap:18px; flex-wrap:wrap; border:1px solid oklch(0.29 0.012 255); border-radius:12px; padding:14px 18px; background:oklch(0.195 0.012 255)">
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Contributor</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.contributor }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Component</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.component }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Run</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.run }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Parent packet</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.parentLabel }}</div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Inputs</div>
+            <sc-for list="{{ selected.inputs }}" as="i" hint-placeholder-count="3">
+              <div style="font-size:13.5px; line-height:1.6; color:oklch(0.82 0.012 255); padding-left:14px; border-left:2px solid oklch(0.30 0.012 255)">{{ i.text }}</div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Assumptions</div>
+            <sc-for list="{{ selected.assumptions }}" as="a" hint-placeholder-count="2">
+              <div style="font-size:13.5px; line-height:1.6; color:oklch(0.82 0.012 255); padding-left:14px; border-left:2px solid oklch(0.30 0.012 255)">{{ a.text }}</div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Parameters</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+              <sc-for list="{{ selected.parameters }}" as="pr" hint-placeholder-count="3">
+                <div style="display:flex; align-items:baseline; gap:6px; border:1px solid oklch(0.30 0.012 255); border-radius:8px; padding:6px 12px; background:oklch(0.16 0.012 255)">
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:oklch(0.58 0.012 255)">{{ pr.key }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:oklch(0.90 0.01 255)">{{ pr.value }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Rationale</div>
+            <div style="font-size:14px; line-height:1.65; color:oklch(0.85 0.01 255); text-wrap:pretty">{{ selected.rationale }}</div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.72 0.14 60)">Uncertainties</div>
+            <sc-for list="{{ selected.uncertainties }}" as="u" hint-placeholder-count="2">
+              <div style="font-size:13.5px; line-height:1.6; color:oklch(0.82 0.06 60); padding-left:14px; border-left:2px solid oklch(0.45 0.10 60)">{{ u.text }}</div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ selected.hasPayload }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Payload</div>
+              <pre style="margin:0; font-family:'IBM Plex Mono',monospace; font-size:12.5px; line-height:1.6; color:oklch(0.82 0.012 255); background:oklch(0.16 0.012 255); border:1px solid oklch(0.29 0.012 255); border-radius:10px; padding:14px 16px; overflow-x:auto; white-space:pre-wrap; word-break:break-word">{{ selected.payloadText }}</pre>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ selected.hasDecision }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid oklch(0.29 0.012 255); border-radius:12px; padding:16px 18px; background:oklch(0.195 0.012 255); display:flex; flex-direction:column; gap:6px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:{{ selected.accent }}">Decision · {{ selected.decisionAction }}</div>
+              <div style="font-size:13.5px; color:oklch(0.82 0.012 255)">{{ selected.decisionReviewer }} — {{ selected.decisionNote }}</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="width:320px; flex:none; border-left:1px solid oklch(0.29 0.012 255); padding:20px 20px 24px; display:flex; flex-direction:column; gap:16px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Reviewer decision</div>
+
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">Reviewer name</div>
+            <input value="{{ reviewerName }}" onChange="{{ onReviewerChange }}" placeholder="e.g. Priya" style="border:1px solid oklch(0.32 0.012 255); background:oklch(0.16 0.012 255); border-radius:8px; padding:10px 12px; font-size:13.5px; color:oklch(0.92 0.01 255); outline:none" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">Note {{ noteHint }}</div>
+            <textarea value="{{ noteText }}" onChange="{{ onNoteChange }}" placeholder="Required for correction or rejection" rows="4" style="border:1px solid oklch(0.32 0.012 255); background:oklch(0.16 0.012 255); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; color:oklch(0.92 0.01 255); outline:none; resize:vertical; font-family:inherit"></textarea>
+          </div>
+
+          <sc-if value="{{ formError }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px; color:oklch(0.70 0.18 25); background:oklch(0.22 0.05 25); border:1px solid oklch(0.35 0.10 25); border-radius:8px; padding:8px 10px">{{ formError }}</div>
+          </sc-if>
+
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px">
+            <button onClick="{{ acceptDecision }}" style="padding:12px 14px; border-radius:8px; border:1px solid oklch(0.45 0.14 145); background:oklch(0.24 0.06 145); color:oklch(0.90 0.13 145); font-size:13.5px; font-weight:600; cursor:pointer">Accept</button>
+            <button onClick="{{ correctDecision }}" style="padding:12px 14px; border-radius:8px; border:1px solid oklch(0.45 0.12 80); background:oklch(0.24 0.05 80); color:oklch(0.88 0.13 80); font-size:13.5px; font-weight:600; cursor:pointer">Request correction</button>
+            <button onClick="{{ rejectDecision }}" style="padding:12px 14px; border-radius:8px; border:1px solid oklch(0.45 0.12 25); background:oklch(0.24 0.05 25); color:oklch(0.86 0.14 25); font-size:13.5px; font-weight:600; cursor:pointer">Reject</button>
+          </div>
+
+          <div style="font-size:11.5px; line-height:1.5; color:oklch(0.5 0.012 255); margin-top:4px">Decisions are terminal — each packet may only be decided once.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showEmptyDetail }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; color:oklch(0.5 0.012 255); font-size:14px">Select a packet from the queue to review it.</div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; padding:24px 32px; display:flex; flex-direction:column; gap:18px; min-height:0">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Decided packets</div>
+        <div style="display:flex; gap:8px">
+          <sc-for list="{{ historyFilters }}" as="f" hint-placeholder-count="4">
+            <button onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px">
+        <sc-if value="{{ hasHistory }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ historyPackets }}" as="h" hint-placeholder-count="4">
+            <div style="border:1px solid oklch(0.29 0.012 255); background:oklch(0.195 0.012 255); border-radius:12px; padding:16px 18px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap">
+              <div style="display:flex; flex-direction:column; gap:6px; min-width:0; flex:1">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ h.packet_id }}</div>
+                  <div style="{{ h.pillStyle }}">{{ h.statusLabel }}</div>
+                </div>
+                <div style="font-size:15px; font-weight:600">{{ h.proposal }}</div>
+                <div style="font-size:12.5px; color:oklch(0.62 0.012 255)">{{ h.contributor }} · reviewed by {{ h.decisionReviewer }} · {{ h.timeLabel }}</div>
+                <sc-if value="{{ h.hasNote }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:13px; color:oklch(0.78 0.012 255); margin-top:2px">"{{ h.decisionNote }}"</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ showEmptyHistory }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:60px 0; text-align:center; color:oklch(0.5 0.012 255); font-size:13.5px">No decided packets yet for this filter.</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;connect&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;options&quot;: [&quot;connect&quot;, &quot;workbench&quot;, &quot;history&quot;], &quot;section&quot;: &quot;Behavior&quot;}}">
+const STATUS_META = {
+  pending: { label: 'Pending', hue: 205, chroma: 0.13 },
+  accepted: { label: 'Accepted', hue: 145, chroma: 0.15 },
+  correction_requested: { label: 'Correction requested', hue: 80, chroma: 0.14 },
+  rejected: { label: 'Rejected', hue: 25, chroma: 0.18 },
+};
+
+const POLL_MS = 2000;
+const MOCK_URL = 'mock/pending-reviews.json';
+const DEFAULT_SERVICE_URL = 'http://127.0.0.1:9900';
+
+function accentColor(status) {
+  const m = STATUS_META[status] || STATUS_META.pending;
+  return `oklch(0.75 ${m.chroma} ${m.hue})`;
+}
+
+function pillStyle(status) {
+  const m = STATUS_META[status] || STATUS_META.pending;
+  return `font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:999px; border:1px solid oklch(0.42 ${m.chroma} ${m.hue}); background:oklch(0.22 ${m.chroma * 0.5} ${m.hue}); color:oklch(0.85 ${m.chroma} ${m.hue}); white-space:nowrap`;
+}
+
+function timeLabel(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatParamValue(value) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: this.props.startScreen || 'connect',
+    mockMode: true,
+    serviceUrl: DEFAULT_SERVICE_URL,
+    connection: { status: 'idle', message: '' },
+    pendingRecords: [],
+    historyRecords: [],
+    mockDecisions: {},
+    selectedId: null,
+    reviewerName: '',
+    noteText: '',
+    formError: '',
+    submitting: false,
+    historyFilter: 'all',
+    aboutHeight: null,
+  };
+
+  aboutIframeRef = (el) => { this._aboutIframe = el; };
+
+  onAboutLoad = () => {
+    if (this._aboutPoll) clearInterval(this._aboutPoll);
+    let lastH = 0, stableCount = 0;
+    this._aboutPoll = setInterval(() => {
+      try {
+        const doc = this._aboutIframe.contentWindow.document;
+        const h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+        if (h === lastH) {
+          stableCount++;
+          if (stableCount >= 2) { clearInterval(this._aboutPoll); this._aboutPoll = null; }
+        } else {
+          stableCount = 0;
+          lastH = h;
+        }
+        if (h > 0) this.setState({ aboutHeight: h });
+      } catch (e) {}
+    }, 250);
+  };
+
+  componentDidMount() {
+    this._pendingSeq = 0;
+    this._historySeq = 0;
+    this.poll();
+    this._pollTimer = setInterval(() => this.poll(), POLL_MS);
+  }
+
+  componentWillUnmount() {
+    if (this._pollTimer) clearInterval(this._pollTimer);
+    if (this._aboutPoll) clearInterval(this._aboutPoll);
+  }
+
+  /* Overlay locally-recorded mock decisions on top of freshly-fetched mock
+     fixture data. The checked-in fixture always reports every packet as
+     pending, so without this a re-poll would silently resurrect anything
+     the reviewer had already decided in mock mode. */
+  applyMockOverlay(reviews) {
+    const overlay = this.state.mockDecisions;
+    return reviews.map((r) => {
+      const d = overlay[r.packet_id];
+      return d ? Object.assign({}, r, { status: d.status, decision: d.decision }) : r;
+    });
+  }
+
+  fetchReviews(status) {
+    if (this.state.mockMode) {
+      return fetch(MOCK_URL, { cache: 'no-store' })
+        .then((res) => {
+          if (!res.ok) throw new Error('mock fixture returned ' + res.status);
+          return res.json();
+        })
+        .then((data) => ({ ok: true, reviews: Array.isArray(data.reviews) ? data.reviews : [] }))
+        .catch((err) => ({ ok: false, error: 'Could not load the mock fixture: ' + err.message }));
+    }
+    const base = (this.state.serviceUrl || '').trim().replace(/\/+$/, '');
+    if (!base) return Promise.resolve({ ok: false, error: 'Enter a service URL.' });
+    const query = status ? '?status=' + encodeURIComponent(status) : '';
+    return fetch(base + '/reviews' + query, { headers: { Accept: 'application/json' }, cache: 'no-store' })
+      .then((res) => {
+        if (!res.ok) throw new Error('API returned ' + res.status);
+        return res.json();
+      })
+      .then((data) => ({ ok: true, reviews: Array.isArray(data.reviews) ? data.reviews : [] }))
+      .catch((err) => ({ ok: false, error: 'Cannot reach the review API (' + err.message + ').' }));
+  }
+
+  /* Which screen is active decides which query runs, per the architecture's
+     polling contract. Each bucket (pending vs. history) tracks its own
+     sequence number so a slow response can never clobber a fresher one for
+     the same bucket, while polls for the other bucket are unaffected. */
+  poll() {
+    const screen = this.state.screen;
+    if (screen === 'about') return Promise.resolve();
+    const status = screen === 'history' ? null : 'pending';
+    const bucket = screen === 'history' ? 'history' : 'pending';
+    const seq = bucket === 'history' ? ++this._historySeq : ++this._pendingSeq;
+    return this.fetchReviews(status).then((result) => {
+      const current = bucket === 'history' ? this._historySeq : this._pendingSeq;
+      if (seq !== current) return;
+      if (!result.ok) {
+        this.setState({ connection: { status: 'error', message: result.error } });
+        return;
+      }
+      let reviews = result.reviews;
+      if (this.state.mockMode) {
+        reviews = this.applyMockOverlay(reviews);
+        if (status) reviews = reviews.filter((r) => r.status === status);
+      }
+      this.setState({
+        connection: { status: 'ok', message: '' },
+        [bucket === 'history' ? 'historyRecords' : 'pendingRecords']: reviews,
+      });
+    });
+  }
+
+  setScreen(screen) { this.setState({ screen }, () => this.poll()); }
+  select(id) { this.setState({ selectedId: id, noteText: '', formError: '' }); }
+
+  decide(action) {
+    if (this.state.submitting) return;
+    const s = this.state;
+    const record = s.pendingRecords.find((r) => r.packet_id === s.selectedId);
+    if (!record) return;
+    if (record.status !== 'pending') { this.setState({ formError: 'This packet has already been decided.' }); return; }
+    if (!s.reviewerName.trim()) { this.setState({ formError: 'Reviewer name is required.' }); return; }
+    if (action !== 'accept' && !s.noteText.trim()) { this.setState({ formError: 'A note is required for correction or rejection.' }); return; }
+
+    const statusMap = { accept: 'accepted', request_correction: 'correction_requested', reject: 'rejected' };
+    const reviewer = s.reviewerName.trim();
+    const note = s.noteText.trim();
+    const packetId = record.packet_id;
+
+    if (s.mockMode) {
+      const decision = { action, reviewer, note: note || null, decided_at: new Date().toISOString() };
+      this.setState((st) => ({
+        formError: '',
+        noteText: '',
+        mockDecisions: Object.assign({}, st.mockDecisions, { [packetId]: { status: statusMap[action], decision } }),
+        pendingRecords: st.pendingRecords.map((r) => r.packet_id === packetId ? Object.assign({}, r, { status: statusMap[action], decision }) : r),
+      }));
+      return;
+    }
+
+    const base = s.serviceUrl.trim().replace(/\/+$/, '');
+    const body = { action, reviewer };
+    if (note) body.note = note;
+
+    this.setState({ submitting: true, formError: '' });
+    fetch(base + '/reviews/' + encodeURIComponent(packetId) + '/decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then((res) => res.json().catch(() => null).then((payload) => {
+        if (res.ok) return payload;
+        if (res.status === 409) throw new Error('This packet was already decided by someone else.');
+        if (res.status === 422) {
+          const detail = payload && payload.detail;
+          const msg = Array.isArray(detail) ? detail.map((d) => d.msg).filter(Boolean).join('; ') : detail;
+          throw new Error(msg || 'The API rejected this decision as invalid.');
+        }
+        if (res.status === 404) throw new Error('This packet no longer exists on the server.');
+        throw new Error((payload && payload.detail) || ('Request failed (HTTP ' + res.status + ')'));
+      }))
+      .then((updated) => {
+        this.setState((st) => ({
+          submitting: false,
+          noteText: '',
+          pendingRecords: st.pendingRecords.map((r) => r.packet_id === packetId ? updated : r),
+        }));
+        this.poll();
+      })
+      .catch((err) => {
+        this.setState({ submitting: false, formError: err.message });
+        this.poll();
+      });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tabDefs = [
+      { key: 'about', label: 'About' },
+      { key: 'connect', label: 'Connect' },
+      { key: 'workbench', label: 'Workbench' },
+      { key: 'history', label: 'History' },
+    ];
+    const tabs = tabDefs.map(t => ({
+      label: t.label,
+      onClick: () => this.setScreen(t.key),
+      style: `padding:10px 16px; border-radius:999px; font-size:13px; font-weight:500; letter-spacing:.01em; cursor:pointer; border:1px solid ${s.screen === t.key ? 'oklch(0.55 0.13 205)' : 'oklch(0.30 0.012 255)'}; background:${s.screen === t.key ? 'oklch(0.28 0.07 205)' : 'transparent'}; color:${s.screen === t.key ? 'oklch(0.90 0.10 205)' : 'oklch(0.75 0.012 255)'}`,
+    }));
+
+    const pending = s.pendingRecords.filter(r => r.status === 'pending').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const selected = s.pendingRecords.find(r => r.packet_id === s.selectedId) || null;
+
+    const pendingPackets = pending.map(r => {
+      const p = r.packet || {};
+      return {
+        packet_id: r.packet_id, role: p.role, contributor: p.contributor, timeLabel: timeLabel(r.created_at),
+        onSelect: () => this.select(r.packet_id),
+        dotStyle: `width:8px; height:8px; border-radius:50%; background:${accentColor('pending')}`,
+        cardStyle: `text-align:left; cursor:pointer; display:flex; flex-direction:column; gap:6px; padding:12px 14px; border-radius:10px; border:1px solid ${s.selectedId === r.packet_id ? 'oklch(0.55 0.13 205)' : 'oklch(0.27 0.012 255)'}; background:${s.selectedId === r.packet_id ? 'oklch(0.24 0.05 205)' : 'oklch(0.195 0.012 255)'}`,
+      };
+    });
+
+    const buildDetail = (r) => {
+      if (!r) return null;
+      const p = r.packet || {};
+      const prov = p.provenance || {};
+      const parentIds = prov.parent_packet_ids || [];
+      return {
+        role: p.role,
+        stage: p.stage,
+        status: r.status,
+        proposal: p.proposal,
+        contributor: p.contributor,
+        component: prov.component_id,
+        run: prov.run_id,
+        parentLabel: parentIds.length ? parentIds.join(', ') : 'No parent packets — this starts a chain.',
+        accent: accentColor(r.status),
+        statusLabel: (STATUS_META[r.status] || STATUS_META.pending).label,
+        statusPillStyle: pillStyle(r.status),
+        inputs: (p.inputs || []).map(text => ({ text })),
+        assumptions: (p.assumptions || []).map(text => ({ text })),
+        parameters: (p.parameters || []).map(param => ({ key: param.name, value: formatParamValue(param.value) + (param.unit ? ' ' + param.unit : '') })),
+        rationale: p.rationale,
+        uncertainties: (p.uncertainties || []).map(text => ({ text })),
+        hasPayload: !!(p.payload && Object.keys(p.payload).length),
+        payloadText: p.payload ? JSON.stringify(p.payload, null, 2) : '',
+        hasDecision: !!r.decision,
+        decisionAction: r.decision ? (r.decision.action === 'accept' ? 'accepted' : r.decision.action === 'reject' ? 'rejected' : 'correction requested') : '',
+        decisionReviewer: r.decision ? r.decision.reviewer : '',
+        decisionNote: r.decision ? (r.decision.note || 'No note.') : '',
+      };
+    };
+
+    const historyAll = s.historyRecords.filter(r => r.status !== 'pending').sort((a, b) => new Date((b.decision && b.decision.decided_at) || 0) - new Date((a.decision && a.decision.decided_at) || 0));
+    const historyFiltered = s.historyFilter === 'all' ? historyAll : historyAll.filter(r => r.status === s.historyFilter);
+    const filterDefs = [
+      { key: 'all', label: 'All' },
+      { key: 'accepted', label: 'Accepted' },
+      { key: 'correction_requested', label: 'Correction' },
+      { key: 'rejected', label: 'Rejected' },
+    ];
+
+    let connLabel, connColorVal, connHint;
+    if (s.mockMode) {
+      connLabel = 'Mock';
+      connColorVal = 'oklch(0.75 0.13 205)';
+      connHint = 'Serving mock review data';
+    } else if (s.connection.status === 'ok') {
+      connLabel = 'Live';
+      connColorVal = 'oklch(0.72 0.15 145)';
+      connHint = 'Connected · ' + pending.length + ' pending review' + (pending.length === 1 ? '' : 's');
+    } else if (s.connection.status === 'error') {
+      connLabel = 'Offline';
+      connColorVal = 'oklch(0.65 0.16 25)';
+      connHint = s.connection.message || 'No live Chirp service detected';
+    } else {
+      connLabel = 'Checking';
+      connColorVal = 'oklch(0.65 0.02 255)';
+      connHint = 'Checking connection…';
+    }
+
+    return {
+      tabs,
+      isAbout: s.screen === 'about',
+      aboutIframeRef: this.aboutIframeRef,
+      onAboutLoad: this.onAboutLoad,
+      aboutIframeStyle: `width:100%; height:${s.aboutHeight ? s.aboutHeight + 'px' : '100vh'}; border:none; display:block`,
+      isConnect: s.screen === 'connect',
+      isWorkbench: s.screen === 'workbench',
+      isHistory: s.screen === 'history',
+
+      serviceUrl: s.serviceUrl,
+      onServiceUrlChange: (e) => this.setState({ serviceUrl: e.target.value }),
+      connectionHint: connHint,
+      connectionLabel: connLabel,
+      connectionColor: connColorVal,
+      connectionDotStyle: `width:8px; height:8px; border-radius:50%; background:${connColorVal}`,
+      toggleMock: () => this.setState(st => ({ mockMode: !st.mockMode, connection: { status: 'idle', message: '' } }), () => this.poll()),
+      mockToggleStyle: `width:44px; height:26px; border-radius:999px; border:1px solid oklch(0.34 0.012 255); background:${s.mockMode ? 'oklch(0.40 0.10 205)' : 'oklch(0.24 0.012 255)'}; cursor:pointer; padding:2px; display:flex; justify-content:${s.mockMode ? 'flex-end' : 'flex-start'}`,
+      mockKnobStyle: 'width:20px; height:20px; border-radius:50%; background:oklch(0.95 0.005 255)',
+      enterWorkbench: () => this.setScreen('workbench'),
+
+      pendingCount: pending.length + ' pending',
+      hasPending: pendingPackets.length > 0,
+      showEmptyQueue: pendingPackets.length === 0,
+      pendingPackets,
+
+      hasSelection: !!selected,
+      showEmptyDetail: !selected,
+      selected: buildDetail(selected),
+
+      reviewerName: s.reviewerName,
+      onReviewerChange: (e) => this.setState({ reviewerName: e.target.value }),
+      noteText: s.noteText,
+      onNoteChange: (e) => this.setState({ noteText: e.target.value }),
+      noteHint: selected && selected.status !== 'pending' ? '' : '(required for correction/reject)',
+      formError: s.formError,
+      acceptDecision: () => this.decide('accept'),
+      correctDecision: () => this.decide('request_correction'),
+      rejectDecision: () => this.decide('reject'),
+
+      historyFilters: filterDefs.map(f => ({
+        label: f.label,
+        onClick: () => this.setState({ historyFilter: f.key }),
+        style: `padding:8px 14px; border-radius:999px; font-size:12.5px; cursor:pointer; border:1px solid ${s.historyFilter === f.key ? 'oklch(0.55 0.13 205)' : 'oklch(0.30 0.012 255)'}; background:${s.historyFilter === f.key ? 'oklch(0.28 0.07 205)' : 'transparent'}; color:${s.historyFilter === f.key ? 'oklch(0.90 0.10 205)' : 'oklch(0.72 0.012 255)'}`,
+      })),
+      hasHistory: historyFiltered.length > 0,
+      showEmptyHistory: historyFiltered.length === 0,
+      historyPackets: historyFiltered.map(r => {
+        const p = r.packet || {};
+        return {
+          packet_id: r.packet_id, proposal: p.proposal, contributor: p.contributor,
+          statusLabel: (STATUS_META[r.status] || STATUS_META.pending).label,
+          pillStyle: pillStyle(r.status),
+          decisionReviewer: r.decision ? r.decision.reviewer : '',
+          timeLabel: timeLabel(r.decision ? r.decision.decided_at : r.created_at),
+          hasNote: !!(r.decision && r.decision.note),
+          decisionNote: r.decision ? r.decision.note : '',
+        };
+      }),
+    };
+  }
+}
+</script>
 </body>
 </html>
