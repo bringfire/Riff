@@ -94,6 +94,11 @@ code { font-family: var(--mono); font-size: 0.92em; }
 
 /* ---------------- top bar ---------------- */
 
+/* Header chrome follows "Design workflow_R1/RIFF Workflow.dc.html" exactly:
+   28px/34px container padding, an 18px offset to the rule, 22px between the
+   stacked eyebrow and title, 40px title. Note the cost — the canvas is a
+   share page where the header is the pitch, while this is a persistent tool
+   where every header pixel is taken from the review panes. */
 .topbar {
   flex: none;
   display: flex;
@@ -102,35 +107,38 @@ code { font-family: var(--mono); font-size: 0.92em; }
   gap: 24px;
   flex-wrap: wrap;
   border-bottom: 1px solid oklch(0.30 0.012 255);
-  padding: 20px 32px 14px;
+  padding: 28px 34px 18px;
 }
 
-.brand { display: flex; flex-direction: column; gap: 6px; }
+.brand { display: flex; flex-direction: column; gap: 22px; }
 
 .brand-eyebrow {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: oklch(0.68 0.02 255);
 }
 
 .brand-title {
   margin: 0;
-  font-size: 28px;
+  font-size: 40px;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
+/* Muted and lighter, but the same size as the title — the canvas does not
+   shrink the connector, it only recedes it. */
 .brand-sub {
-  color: var(--muted-3);
+  color: oklch(0.60 0.02 255);
   font-weight: 400;
-  font-size: 16px;
-  letter-spacing: 0;
 }
 
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* Geometry already matched the canvas; the states did not. Inactive tabs sit
+   on a faint raised chip rather than transparent, and both states carry less
+   chroma than the accent tokens were giving them. Values are the canvas's. */
 .tab {
   padding: 10px 16px;
   border-radius: 999px;
@@ -138,17 +146,22 @@ code { font-family: var(--mono); font-size: 0.92em; }
   font-weight: 500;
   letter-spacing: 0.01em;
   cursor: pointer;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: oklch(0.75 0.012 255);
+  border: 1px solid oklch(0.32 0.012 255);
+  background: oklch(0.21 0.012 255);
+  color: oklch(0.76 0.012 255);
+  transition: all 0.18s;
 }
 
 .tab:hover { border-color: var(--line-strong); color: var(--text); }
 
 .tab[aria-current="true"] {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: oklch(0.90 0.10 205);
+  border-color: oklch(0.52 0.09 205);
+  background: oklch(0.30 0.04 205);
+  color: oklch(0.94 0.02 205);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab { transition: none; }
 }
 
 .topbar-status { display: flex; align-items: center; gap: 12px; }
