@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Riff reasoning review</title>
+  <link rel="stylesheet" href="presenter.css">
+</head>
+<body>
+  <!-- Visual baseline: GitTejal commit 9169891. -->
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="eyebrow">Human-in-the-loop review</div>
+        <h1>RIFF <span>as an extension of CHIRP</span></h1>
+      </div>
+      <nav class="top-actions" aria-label="Riff navigation and actions">
+        <a class="pill" href="./">About</a>
+        <span class="pill pill-active" aria-current="page">Workbench</span>
+        <button id="refreshMatrix" class="pill" type="button">Refresh reviews</button>
+        <button id="downloadMatrix" class="pill" type="button">Download matrix</button>
+      </nav>
+    </header>
+
+    <main class="workspace">
+      <aside class="queue-pane" aria-labelledby="nodeQueueHeading">
+        <div class="pane-heading">
+          <span id="nodeQueueHeading">Snapshot nodes</span>
+          <span class="live-count"><span class="live-dot"></span><span id="nodeCount">—</span></span>
+        </div>
+        <div id="nodeIndex" class="node-index" aria-live="polite"></div>
+      </aside>
+
+      <section class="detail-pane" aria-label="Snapshot presentation">
+        <p id="loadingState" class="state-message" role="status">Loading snapshot presentation…</p>
+        <p id="errorState" class="error-message" role="alert" hidden></p>
+        <div id="presentation" class="presentation" hidden></div>
+      </section>
+
+      <aside class="tools-pane" aria-labelledby="snapshotHeading">
+        <div>
+          <div id="snapshotHeading" class="section-label">Snapshot</div>
+          <div id="presentationSource" class="source-badge">presentation_source: —</div>
+        </div>
+
+        <dl class="snapshot-meta">
+          <div><dt>Snapshot ID</dt><dd id="snapshotId">—</dd></div>
+          <div><dt>Canvas</dt><dd id="canvasId">—</dd></div>
+          <div><dt>Run</dt><dd id="runId">—</dd></div>
+          <div><dt>Captured</dt><dd id="capturedAt">—</dd></div>
+        </dl>
+
+        <div class="review-completion">
+          <div>
+            <strong>Review Matrix</strong>
+            <span id="reviewComplete">Waiting for snapshot</span>
+          </div>
+          <span id="reviewCompletionDot" class="status-dot"></span>
+        </div>
+
+        <div class="trust-note">
+          <strong>Trusted presentation</strong>
+          <p>Source reasoning, Riff assessments, and human decisions remain separate and inspectable.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="presenter.js"></script>
+</body>
+</html>

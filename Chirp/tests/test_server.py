@@ -1,11 +1,14 @@
 """Tests for the FastAPI server — health check and request/response shape."""
 
+from pathlib import Path
+
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from chirp.server import app
 
 
 client = TestClient(app)
+WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
 
 def test_health():
@@ -208,3 +211,60 @@ def test_chirp_create_with_model():
     data = resp.json()
     assert data["model"] == "openai/mercury-2"
     assert "mercury-2" in data["script"]
+
+
+def test_presenter_frontend_contract_is_ready_for_snapshot_backend():
+    html = (WEB_DIR / "presenter.html").read_text(encoding="utf-8")
+    javascript = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+
+    for element_id in (
+        "presentationSource",
+        "refreshMatrix",
+        "downloadMatrix",
+        "loadingState",
+        "errorState",
+        "presentation",
+    ):
+        assert f'id="{element_id}"' in html
+
+    assert 'src="presenter.js"' in html
+    assert 'href="presenter.css"' in html
+    assert '"/api/riff/snapshots/"' in javascript
+    assert '"/reviews/"' in javascript
+    assert "new URLSearchParams(window.location.search)" in javascript
+
+
+def test_presenter_javascript_uses_trusted_dispatch_and_safe_dom_contract():
+    source = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+
+    for renderer in (
+        "renderRunSummary",
+        "renderNodeReasoning",
+        "renderProposalDetails",
+        "renderConflictsUncertainties",
+        "renderProvenance",
+        "renderHumanReview",
+    ):
+        assert renderer in source
+
+    assert "textContent" in source
+    assert '"/api/riff/snapshots/"' in source
+    assert '"/reviews/"' in source
+    assert "response.blob()" in source
+    assert "eval(" not in source
+    assert "innerHTML" not in source
+    assert "dynamic import" not in source
+    assert "GET /reviews?status=pending" not in source
+
+
+def test_presenter_javascript_validates_decision_before_local_update():
+    source = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+    validation = "validateDecisionResponse(updated, review.packet_id, action)"
+    update = "state.reviewByNodeId[nodeId] = validated"
+
+    assert validation in source
+    assert 'accept: "accepted"' in source
+    assert 'request_correction: "correction_requested"' in source
+    assert 'reject: "rejected"' in source
+    assert update in source
+    assert source.index(validation) < source.index(update)
