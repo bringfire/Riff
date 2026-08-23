@@ -1,8 +1,17 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="Riff%20logo%20dark.png">
+  <img alt="Riff" src="Riff%20logo.png" width="200">
+</picture>
+
 # Riff
 
 **Human review for AI design reasoning.**
 
 AEC Tech Hackathon 2026 · Boston
+
+</div>
 
 ---
 
@@ -117,11 +126,3 @@ This is a hackathon prototype. It proves one round trip end to end.
 **Deliberately out of scope for this slice:** geometry transport or gating · automated Grasshopper snapshot capture · a pending-review queue endpoint · database persistence · authentication and multiple reviewers · WebSockets and streaming.
 
 State is process-local and disappears on restart. See [ROADMAP.md](ROADMAP.md) for what comes next.
-
-## Testing
-
-```bash
-cd Chirp && pytest
-```
-
-131 tests across the review store, presenter, snapshot lifecycle, adapter, server integration, and the `chirp_create` generator.
