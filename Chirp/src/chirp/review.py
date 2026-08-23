@@ -5,11 +5,11 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Callable, Literal, Sequence
+from typing import Annotated, Callable, Literal, Sequence
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, ConfigDict, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, JsonValue, StringConstraints, model_validator
 
 
 DecisionAction = Literal["accept", "request_correction", "reject"]
@@ -18,6 +18,10 @@ ReviewStatus = Literal[
     "accepted",
     "correction_requested",
     "rejected",
+]
+TrimmedNonBlank = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1),
 ]
 
 
@@ -64,7 +68,7 @@ class DecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     action: DecisionAction
-    reviewer: str
+    reviewer: TrimmedNonBlank
     note: str | None = None
 
     @model_validator(mode="after")
@@ -141,12 +145,27 @@ def create_review_batch(
             raise
 
 
+def _read_review_batch_locked(
+    packet_ids: Sequence[str],
+) -> tuple[ReviewResponse, ...]:
+    missing = next((packet_id for packet_id in packet_ids if packet_id not in _reviews), None)
+    if missing is not None:
+        raise KeyError(missing)
+    return tuple(_snapshot(_reviews[packet_id]) for packet_id in packet_ids)
+
+
 def read_review_batch(packet_ids: Sequence[str]) -> tuple[ReviewResponse, ...]:
     with _review_lock:
-        missing = next((packet_id for packet_id in packet_ids if packet_id not in _reviews), None)
-        if missing is not None:
-            raise KeyError(missing)
-        return tuple(_snapshot(_reviews[packet_id]) for packet_id in packet_ids)
+        return _read_review_batch_locked(packet_ids)
+
+
+def read_review_batch_with_observed_at(
+    packet_ids: Sequence[str],
+) -> tuple[tuple[ReviewResponse, ...], datetime]:
+    with _review_lock:
+        snapshots = _read_review_batch_locked(packet_ids)
+        observed_at = datetime.now(timezone.utc)
+        return snapshots, observed_at
 
 
 router = APIRouter()

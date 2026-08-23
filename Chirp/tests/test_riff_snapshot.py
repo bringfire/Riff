@@ -146,6 +146,47 @@ def test_same_completed_snapshot_id_with_different_content_returns_409(
     assert snapshot_client.post("/api/riff/snapshots", json=changed).status_code == 409
 
 
+@pytest.mark.parametrize(
+    "snapshot_id",
+    ["group/snapshot-1", ".", "..", " snapshot-1", "snapshot-1 ", "snap shot"],
+)
+def test_post_rejects_snapshot_ids_that_are_not_path_safe(
+    snapshot_client, valid_snapshot, snapshot_id
+):
+    invalid = deepcopy(valid_snapshot)
+    invalid["snapshot_id"] = snapshot_id
+
+    response = snapshot_client.post("/api/riff/snapshots", json=invalid)
+
+    assert response.status_code == 422
+
+
+def test_path_safe_snapshot_id_round_trips_through_get_and_matrix(
+    snapshot_client, valid_snapshot
+):
+    valid_snapshot["snapshot_id"] = "group.snapshot_1-2"
+    assert snapshot_client.post("/api/riff/snapshots", json=valid_snapshot).status_code == 201
+
+    fetched = snapshot_client.get("/api/riff/snapshots/group.snapshot_1-2")
+    matrix = snapshot_client.get("/api/riff/snapshots/group.snapshot_1-2/matrix")
+
+    assert fetched.status_code == 200
+    assert matrix.status_code == 200
+    assert fetched.json()["snapshot"]["snapshot_id"] == "group.snapshot_1-2"
+    assert matrix.json()["snapshot_id"] == "group.snapshot_1-2"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/riff/snapshots/%20snapshot-1",
+        "/api/riff/snapshots/%20snapshot-1/matrix",
+    ],
+)
+def test_get_routes_reject_invalid_snapshot_ids_without_normalizing(path, snapshot_client):
+    assert snapshot_client.get(path).status_code == 422
+
+
 def test_get_snapshot_returns_stored_defensive_copy_without_presenter_call(
     snapshot_client, fake_presenter, valid_snapshot
 ):
@@ -302,6 +343,26 @@ def test_different_content_conflicts_while_original_import_is_in_flight(valid_mo
         owner.result(timeout=2)
 
 
+def test_import_freezes_snapshot_before_fingerprinting_and_presenting(valid_model):
+    presenter = BlockingPresenter()
+    service = SnapshotService(presenter)
+    original = valid_model.model_copy(deep=True)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        owner = pool.submit(service.import_snapshot, valid_model)
+        assert presenter.entered.wait(timeout=2)
+        valid_model.nodes[0].reasoning_packet.proposal = "mutated during presentation"
+        presenter.release.set()
+        result = owner.result(timeout=2)
+
+    assert result.response.snapshot.nodes[0].reasoning_packet.proposal == (
+        original.nodes[0].reasoning_packet.proposal
+    )
+    assert service.import_snapshot(original).created is False
+    with pytest.raises(SnapshotConflictError):
+        service.import_snapshot(valid_model)
+
+
 def test_identical_waiter_is_released_after_owner_failure(valid_model):
     class FailingBlockingPresenter(BlockingPresenter):
         def present(self, snapshot):
@@ -398,6 +459,52 @@ def test_matrix_preserves_node_order_and_joins_current_decisions(snapshot_client
     assert [node["review"]["status"] for node in matrix["nodes"]] == ["accepted", "correction_requested"]
     assert matrix["nodes"][1]["review"]["decision"]["reviewer"] == "Lin"
     assert matrix["nodes"][1]["review"]["decision"]["note"] == "Clarify boundary"
+
+
+def test_matrix_uses_review_batch_observation_timestamp(
+    service, valid_model, monkeypatch
+):
+    imported = service.import_snapshot(valid_model)
+    packet_ids = tuple(
+        mapping.packet_id for mapping in imported.response.node_reviews
+    )
+    observed_at = datetime(2026, 8, 23, 12, 30, tzinfo=timezone.utc)
+    import chirp.review as review_module
+    import chirp.riff_snapshot as snapshot_module
+
+    def observed_batch(requested_ids):
+        assert tuple(requested_ids) == packet_ids
+        reviews = tuple(review_module.get_review(packet_id) for packet_id in packet_ids)
+        return reviews, observed_at
+
+    monkeypatch.setattr(
+        snapshot_module,
+        "read_review_batch_with_observed_at",
+        observed_batch,
+    )
+
+    matrix = service.build_matrix(valid_model.snapshot_id)
+
+    assert matrix.exported_at == observed_at
+
+
+def test_blank_reviewer_does_not_poison_presenter_matrix(
+    snapshot_client, valid_snapshot
+):
+    created = snapshot_client.post("/api/riff/snapshots", json=valid_snapshot).json()
+    packet_id = created["node_reviews"][0]["packet_id"]
+
+    rejected = snapshot_client.post(
+        f"/reviews/{packet_id}/decision",
+        json={"action": "accept", "reviewer": "   "},
+    )
+    matrix = snapshot_client.get(
+        f"/api/riff/snapshots/{valid_snapshot['snapshot_id']}/matrix"
+    )
+
+    assert rejected.status_code == 422
+    assert matrix.status_code == 200
+    assert matrix.json()["nodes"][0]["review"]["status"] == "pending"
 
 
 def test_matrix_review_complete_is_false_while_any_node_is_pending(snapshot_client, valid_snapshot):

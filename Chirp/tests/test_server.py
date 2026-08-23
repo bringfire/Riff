@@ -271,6 +271,19 @@ def test_presenter_javascript_validates_decision_before_local_update():
     assert source.index(validation) < source.index(update)
 
 
+def test_presenter_rejects_invalid_snapshot_ids_without_normalizing_identity():
+    source = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
+
+    assert "var SNAPSHOT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;" in source
+    assert "function isPathSafeSnapshotId(value)" in source
+    assert "if (!isPathSafeSnapshotId(state.snapshotId))" in source
+    assert "A path-safe snapshot_id query parameter is required." in source
+    query_assignment = source.split("function loadPresentation()", 1)[1].split(
+        "if (!isPathSafeSnapshotId", 1
+    )[0]
+    assert ".trim()" not in query_assignment
+
+
 def test_presenter_navigation_stays_inside_the_trusted_shell():
     response = client.get(
         "/riff/presenter.html?snapshot_id=demo-snapshot-001"

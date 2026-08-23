@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from chirp.riff_presenter import RiffPresenter
+from chirp.riff_presenter import RIFF_PRESENTER_PROMPT, RiffPresenter
 
 
 class FakeAdapter:
@@ -268,19 +268,78 @@ def test_json_pointer_escapes_and_container_references_are_valid(
     ]
 
 
+def test_json_pointer_allows_rfc6901_object_keys_with_special_characters(
+    snapshot_mapping, valid_candidate
+):
+    special_keys = {
+        "$schema": "schema value",
+        "a[b]": "bracket value",
+        "*": "asterisk value",
+        "-": "dash value",
+    }
+    snapshot_mapping["nodes"][0]["reasoning_packet"]["payload"] = special_keys
+    valid_candidate["riff_annotations"][0]["sources"] = [
+        {
+            "node_id": "planner-node",
+            "scope": "reasoning_packet",
+            "field_path": f"/payload/{key}",
+        }
+        for key in special_keys
+    ]
+
+    result = RiffPresenter(FakeAdapter(json.dumps(valid_candidate))).present(
+        snapshot_mapping
+    )
+
+    assert result.presentation_source == "intelligent"
+    assert [source.field_path for source in result.riff_annotations[0].sources] == [
+        "/payload/$schema",
+        "/payload/a[b]",
+        "/payload/*",
+        "/payload/-",
+    ]
+
+
 def test_prompt_declares_candidate_contract_grounding_and_adaptation(
     snapshot_mapping, valid_candidate_text
 ):
     adapter = FakeAdapter(valid_candidate_text)
     RiffPresenter(adapter).present(snapshot_mapping)
     prompt = adapter.calls[0]["inputs"]["riff_instructions"]
-    for required in (
-        '"sections"', '"riff_annotations"', '"template"', '"node_ids"',
-        '"annotation_ids"', '"sources"', '"scope"', '"field_path"',
-        "change_candidate", "informational | attention | blocking", "RFC 6901",
-        "novel roles", "COMPACT VALID EXAMPLE",
-    ):
-        assert required in prompt
+    assert prompt == RIFF_PRESENTER_PROMPT
+    assert '"node_id": "existing-node-id"' in prompt
+    assert "Emit exactly one run_summary first" in prompt
+    assert "Emit exactly one single-node node_reasoning and one single-node human_review per node" in prompt
+    assert "human_review is only a position marker: heading must be null, annotation_ids empty" in prompt
+    assert "When traversing arrays, use canonical indexes and never use the '-' append token" in prompt
+    assert "When traversing objects, cite exact RFC 6901 escaped member names" in prompt
+    assert "Do not use JSONPath wildcards or filters, URI fragments, relative pointers" in prompt
+
+    example_text = prompt.split(
+        "COMPACT VALID EXAMPLE (replace these example IDs and pointers with real snapshot values)\n",
+        1,
+    )[1]
+    example = json.loads(example_text)
+    assert set(example) == {"sections", "riff_annotations"}
+    assert example["sections"][0] == {
+        "template": "run_summary",
+        "node_ids": ["planner-node", "critic-node"],
+        "heading": "Review overview",
+        "annotation_ids": ["a1"],
+        "emphasis": "high",
+    }
+    assert example["riff_annotations"][0]["sources"] == [
+        {
+            "node_id": "planner-node",
+            "scope": "reasoning_packet",
+            "field_path": "/assumptions/0",
+        },
+        {
+            "node_id": "critic-node",
+            "scope": "reasoning_packet",
+            "field_path": "/rationale",
+        },
+    ]
 
 
 def test_presenter_uses_fresh_inputs_and_disables_only_adapter_cache(

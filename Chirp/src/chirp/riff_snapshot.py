@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 import hashlib
 import json
+import re
 from threading import Event, Lock
 from typing import Annotated, Literal
 
@@ -19,7 +20,7 @@ from chirp.review import (
     ReviewResponse,
     ReviewStatus,
     create_review_batch,
-    read_review_batch,
+    read_review_batch_with_observed_at,
 )
 from chirp.riff_presenter import (
     PresentationResult,
@@ -39,6 +40,21 @@ def _require_nonblank(value: str) -> str:
 NonBlank = Annotated[str, AfterValidator(_require_nonblank)]
 
 
+_PATH_SAFE_SNAPSHOT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
+
+
+def _require_path_safe_snapshot_id(value: str) -> str:
+    if not _PATH_SAFE_SNAPSHOT_ID.fullmatch(value):
+        raise ValueError(
+            "snapshot_id must start with an ASCII letter or digit and contain only "
+            "ASCII letters, digits, '.', '_', or '-'"
+        )
+    return value
+
+
+SnapshotId = Annotated[str, AfterValidator(_require_path_safe_snapshot_id)]
+
+
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
@@ -53,7 +69,7 @@ class CanvasReasoningNode(_StrictModel):
 
 class CanvasReasoningSnapshot(_StrictModel):
     canvas_id: NonBlank
-    snapshot_id: NonBlank
+    snapshot_id: SnapshotId
     run_id: NonBlank
     captured_at: datetime
     nodes: list[CanvasReasoningNode] = Field(min_length=1)
@@ -115,7 +131,7 @@ class ReviewMatrixNode(_StrictModel):
 class ReviewMatrix(_StrictModel):
     schema_version: Literal["1.0"] = "1.0"
     canvas_id: NonBlank
-    snapshot_id: NonBlank
+    snapshot_id: SnapshotId
     run_id: NonBlank
     captured_at: datetime
     exported_at: datetime
@@ -185,32 +201,34 @@ class SnapshotService:
         self._in_flight: dict[str, _InFlight] = {}
 
     def import_snapshot(self, snapshot: CanvasReasoningSnapshot) -> _ImportResult:
-        fingerprint = _fingerprint(snapshot)
+        frozen_snapshot = snapshot.model_copy(deep=True)
+        fingerprint = _fingerprint(frozen_snapshot)
+        snapshot_id = frozen_snapshot.snapshot_id
         with self._lock:
-            completed = self._completed.get(snapshot.snapshot_id)
+            completed = self._completed.get(snapshot_id)
             if completed is not None:
                 if completed.fingerprint != fingerprint:
-                    raise SnapshotConflictError(snapshot.snapshot_id)
+                    raise SnapshotConflictError(snapshot_id)
                 return _ImportResult(deepcopy(completed.response), created=False)
-            active = self._in_flight.get(snapshot.snapshot_id)
+            active = self._in_flight.get(snapshot_id)
             if active is not None:
                 if active.fingerprint != fingerprint:
-                    raise SnapshotConflictError(snapshot.snapshot_id)
+                    raise SnapshotConflictError(snapshot_id)
                 waiter = active
                 owner = None
             else:
                 owner = _InFlight(fingerprint=fingerprint)
-                self._in_flight[snapshot.snapshot_id] = owner
+                self._in_flight[snapshot_id] = owner
                 waiter = None
 
         if waiter is not None:
-            return self._wait_for_owner(snapshot.snapshot_id, waiter)
+            return self._wait_for_owner(snapshot_id, waiter)
 
         assert owner is not None
         try:
-            presentation = self._presenter.present(deepcopy(_snapshot_json(snapshot)))
+            presentation = self._presenter.present(_snapshot_json(frozen_snapshot))
             prepared = _PreparedPublication(
-                snapshot=snapshot.model_copy(deep=True),
+                snapshot=frozen_snapshot,
                 fingerprint=fingerprint,
                 presentation=presentation.model_copy(deep=True),
             )
@@ -218,10 +236,10 @@ class SnapshotService:
             try:
                 with self._lock:
                     owner.failed = True
-                    self._in_flight.pop(snapshot.snapshot_id, None)
+                    self._in_flight.pop(snapshot_id, None)
             finally:
                 owner.event.set()
-            raise SnapshotImportError(snapshot.snapshot_id) from exc
+            raise SnapshotImportError(snapshot_id) from exc
 
         return self._publish_owner(prepared, owner)
 
@@ -320,7 +338,7 @@ class SnapshotService:
             if bundle is None:
                 raise SnapshotNotFoundError(snapshot_id)
             response = deepcopy(bundle.response)
-            reviews = read_review_batch(
+            reviews, observed_at = read_review_batch_with_observed_at(
                 tuple(mapping.packet_id for mapping in response.node_reviews)
             )
             review_by_packet = {review.packet_id: review for review in reviews}
@@ -350,7 +368,7 @@ class SnapshotService:
                 snapshot_id=response.snapshot.snapshot_id,
                 run_id=response.snapshot.run_id,
                 captured_at=response.snapshot.captured_at,
-                exported_at=datetime.now(timezone.utc),
+                exported_at=observed_at,
                 presentation_source=response.presentation_source,
                 review_complete=all(review.status != "pending" for review in reviews),
                 riff_annotations=deepcopy(response.riff_annotations),
@@ -383,14 +401,14 @@ def create_riff_router(service: SnapshotService) -> APIRouter:
         return result.response
 
     @router.get("/snapshots/{snapshot_id}", response_model=SnapshotPresentationResponse)
-    def get_snapshot(snapshot_id: str) -> SnapshotPresentationResponse:
+    def get_snapshot(snapshot_id: SnapshotId) -> SnapshotPresentationResponse:
         try:
             return service.get_snapshot(snapshot_id)
         except SnapshotNotFoundError:
             raise HTTPException(status_code=404, detail="Riff snapshot not found")
 
     @router.get("/snapshots/{snapshot_id}/matrix", response_model=ReviewMatrix)
-    def get_matrix(snapshot_id: str) -> ReviewMatrix:
+    def get_matrix(snapshot_id: SnapshotId) -> ReviewMatrix:
         try:
             return service.build_matrix(snapshot_id)
         except SnapshotNotFoundError:

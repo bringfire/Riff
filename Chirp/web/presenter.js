@@ -13,6 +13,8 @@
     reject: "rejected"
   });
 
+  var SNAPSHOT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
   var state = {
     snapshotId: "",
     presentation: null,
@@ -90,6 +92,10 @@
       requireText(item, label + "[" + index + "]");
     });
     return result;
+  }
+
+  function isPathSafeSnapshotId(value) {
+    return SNAPSHOT_ID_PATTERN.test(value);
   }
 
   function snapshotUrl() {
@@ -836,10 +842,10 @@
   function loadPresentation() {
     state.snapshotId = (
       new URLSearchParams(window.location.search).get("snapshot_id") || ""
-    ).trim();
-    if (!state.snapshotId) {
+    );
+    if (!isPathSafeSnapshotId(state.snapshotId)) {
       document.getElementById("loadingState").hidden = true;
-      showError("A snapshot_id query parameter is required.");
+      showError("A path-safe snapshot_id query parameter is required.");
       return Promise.resolve();
     }
     clearError();
