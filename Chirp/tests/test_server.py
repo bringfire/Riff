@@ -231,7 +231,7 @@ def test_presenter_frontend_contract_is_ready_for_snapshot_backend():
         assert f'id="{element_id}"' in html
 
     assert 'src="presenter.js?v=complete-tabs-1"' in html
-    assert 'href="presenter.css?v=brand-logo-1"' in html
+    assert 'href="presenter.css?v=brand-logo-2"' in html
     assert '"/api/riff/snapshots/"' in javascript
     assert '"/reviews/"' in javascript
     assert "new URLSearchParams(window.location.search)" in javascript
@@ -242,6 +242,8 @@ def test_presenter_header_serves_dark_riff_logo():
     assert presenter.status_code == 200
     assert 'class="brand-logo"' in presenter.text
     assert 'src="riff-logo-dark.png"' in presenter.text
+    assert 'width="144"' in presenter.text
+    assert 'height="144"' in presenter.text
 
     logo = client.get("/riff/riff-logo-dark.png")
     assert logo.status_code == 200
@@ -323,7 +325,7 @@ def test_presenter_navigation_stays_inside_the_trusted_shell():
     assert 'id="showWorkbench"' in html
     assert 'id="aboutPanel"' in html
     assert 'id="workbenchPanel"' in html
-    assert 'href="presenter.css?v=brand-logo-1"' in html
+    assert 'href="presenter.css?v=brand-logo-2"' in html
     assert 'src="presenter.js?v=complete-tabs-1"' in html
 
 

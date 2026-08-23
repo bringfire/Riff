@@ -98,9 +98,9 @@ a {
 
 .brand-logo {
   display: block;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
+  width: 144px;
+  height: 144px;
+  flex: 0 0 144px;
   object-fit: cover;
   mix-blend-mode: screen;
 }
@@ -912,9 +912,9 @@ details pre {
 
 @media (max-width: 620px) {
   .brand-logo {
-    width: 42px;
-    height: 42px;
-    flex-basis: 42px;
+    width: 126px;
+    height: 126px;
+    flex-basis: 126px;
   }
 
   h1 {
