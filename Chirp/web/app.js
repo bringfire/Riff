@@ -1,12 +1,19 @@
 /* Riff review workbench.
  *
  * Talks to the frozen review API described in ARCHITECTURE.md:
- *   GET  /reviews?status=pending
- *   POST /reviews/{packet_id}/decision
+ *   GET  /reviews?status=pending          pending queue
+ *   GET  /reviews                         all reviews, used by the History screen
+ *   POST /reviews/{packet_id}/decision    record a terminal decision
  *
  * Same-origin relative URLs only, so no CORS is needed. No dependencies,
- * no build step. `?mock=1` runs the whole UI against a checked-in fixture
- * with no backend at all.
+ * no build step. Mock mode runs the whole UI against checked-in fixtures
+ * with no backend at all; it can be entered with `?mock=1` or toggled at
+ * runtime from the Connect screen.
+ *
+ * Rendering discipline: the poll runs every two seconds while the reviewer is
+ * reading and typing, so no pane is rebuilt unless its content actually
+ * changed. Rebuilding a pane under the reader destroys scroll position, text
+ * selection, and keyboard focus.
  */
 
 (function () {
@@ -14,26 +21,62 @@
 
   var POLL_MS = 2000;
   var API_REVIEWS = "/reviews";
-  var MOCK_URL = "mock/pending-reviews.json";
+  var MOCK_PENDING_URL = "mock/pending-reviews.json";
+  var MOCK_DECIDED_URL = "mock/decided-reviews.json";
+  var ABOUT_URL = "about.html";
 
-  var IS_MOCK = new URLSearchParams(window.location.search).get("mock") === "1";
+  var SCREENS = ["about", "connect", "workbench", "history"];
+
+  var STATUS_LABEL = {
+    pending: "Pending",
+    accepted: "Accepted",
+    correction_requested: "Correction requested",
+    rejected: "Rejected"
+  };
+
+  // Mirrors _STATUS_BY_ACTION in review.py; used only to keep mock mode honest.
+  var STATUS_BY_ACTION = {
+    accept: "accepted",
+    request_correction: "correction_requested",
+    reject: "rejected"
+  };
+
+  var params = new URLSearchParams(window.location.search);
+
+  function initialScreen() {
+    var hash = (window.location.hash || "").replace(/^#/, "");
+    if (SCREENS.indexOf(hash) !== -1) { return hash; }
+    /* Default to the workbench rather than Connect: the demo gate in
+       ROADMAP.md is "open /riff/ and see the pending packet within two
+       seconds", which a landing screen would put behind an extra click. */
+    return "workbench";
+  }
 
   var state = {
+    screen: initialScreen(),
+    mock: params.get("mock") === "1",
+
     reviews: [],          // pending packets currently shown
+    history: [],          // decided packets, newest decision first
+    historyFilter: "all",
+
     selectedId: null,
     noteForId: null,      // packet the text in the note box was written for
     decided: {},          // packet_id -> true, hides packets we have decided
     loadedOnce: false,
+    historyLoadedOnce: false,
     submitting: false,
 
-    /* Repaint guards. The reviewer reads and types while the poll runs, so a
-       pane is only rebuilt when its content actually changed. */
-    queueSig: null,       // signature of the queue as currently painted
+    // Repaint guards.
+    queueSig: null,
+    historySig: null,
     renderedDetailId: null,
 
     polling: false,       // a poll is in flight
     pollSeq: 0,           // increments per poll
-    appliedSeq: 0         // highest poll already applied to the DOM
+    appliedSeq: 0,        // highest poll already applied to the DOM
+
+    aboutProbed: false
   };
 
   // Queue buttons by packet_id, so selection and focus survive a quiet poll.
@@ -42,6 +85,23 @@
   // ---------- element handles ----------
 
   var el = {
+    tabs:          document.getElementById("tabs"),
+
+    screenAbout:   document.getElementById("screenAbout"),
+    screenConnect: document.getElementById("screenConnect"),
+    screenWork:    document.getElementById("screenWorkbench"),
+    screenHistory: document.getElementById("screenHistory"),
+
+    aboutFrame:    document.getElementById("aboutFrame"),
+    aboutMissing:  document.getElementById("aboutMissing"),
+
+    serviceOrigin:   document.getElementById("serviceOrigin"),
+    connectionHint:  document.getElementById("connectionHint"),
+    connectionLabel: document.getElementById("connectionLabel"),
+    connectionDot:   document.getElementById("connectionDot"),
+    mockToggle:      document.getElementById("mockToggle"),
+    enterWorkbench:  document.getElementById("enterWorkbench"),
+
     queueList:     document.getElementById("queueList"),
     queueLoading:  document.getElementById("queueLoading"),
     queueEmpty:    document.getElementById("queueEmpty"),
@@ -59,6 +119,12 @@
     noteReq:       document.getElementById("noteReq"),
     formError:     document.getElementById("formError"),
 
+    historyFilters: document.getElementById("historyFilters"),
+    historyList:    document.getElementById("historyList"),
+    historyLoading: document.getElementById("historyLoading"),
+    historyEmpty:   document.getElementById("historyEmpty"),
+    historyError:   document.getElementById("historyError"),
+
     connState:     document.getElementById("connState"),
     connText:      document.getElementById("connText"),
     mockBadge:     document.getElementById("mockBadge"),
@@ -74,6 +140,19 @@
   function setConn(kind, text) {
     el.connState.setAttribute("data-state", kind);
     el.connText.textContent = text;
+
+    // The Connect screen mirrors the same state in its own card.
+    el.connectionLabel.textContent =
+      kind === "live" ? "Live" : kind === "mock" ? "Mock" : kind === "error" ? "Offline" : "Idle";
+    el.connectionHint.textContent =
+      kind === "mock" ? "Serving mock review data"
+        : kind === "live" ? "Connected to the Chirp review API"
+        : kind === "error" ? "No live Chirp service detected"
+        : "Not connected yet";
+    el.connectionDot.style.background =
+      kind === "error" ? "oklch(0.72 0.18 25)"
+        : kind === "idle" ? "oklch(0.55 0.012 255)"
+        : "oklch(0.75 0.13 205)";
   }
 
   var toastTimer = null;
@@ -98,6 +177,10 @@
     return typeof id === "string" ? id.slice(0, 8) : String(id);
   }
 
+  function statusLabel(status) {
+    return STATUS_LABEL[status] || status || "Unknown";
+  }
+
   /* Build an element with text content. Using textContent throughout means
      packet strings from the model are never parsed as markup. */
   function elem(tag, className, text) {
@@ -105,6 +188,12 @@
     if (className) { n.className = className; }
     if (text !== undefined && text !== null) { n.textContent = String(text); }
     return n;
+  }
+
+  function statusPill(status) {
+    var pill = elem("span", "status-pill", statusLabel(status));
+    pill.setAttribute("data-status", status || "pending");
+    return pill;
   }
 
   function listBlock(title, items, extraClass) {
@@ -125,6 +214,61 @@
     wrap.appendChild(elem("h3", null, title));
     wrap.appendChild(elem("p", "rationale", body));
     return wrap;
+  }
+
+  function metaCell(key, value) {
+    var cell = elem("div", "meta-cell");
+    cell.appendChild(elem("div", "meta-key", key));
+    cell.appendChild(elem("div", "meta-val", value));
+    return cell;
+  }
+
+  // ---------- screen routing ----------
+
+  function setScreen(name) {
+    if (SCREENS.indexOf(name) === -1) { name = "workbench"; }
+    state.screen = name;
+
+    show(el.screenAbout,   name === "about");
+    show(el.screenConnect, name === "connect");
+    show(el.screenWork,    name === "workbench");
+    show(el.screenHistory, name === "history");
+
+    var tabs = el.tabs.querySelectorAll("button[data-screen]");
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].getAttribute("data-screen") === name) {
+        tabs[i].setAttribute("aria-current", "true");
+      } else {
+        tabs[i].removeAttribute("aria-current");
+      }
+    }
+
+    if (window.location.hash.replace(/^#/, "") !== name) {
+      try { history.replaceState(null, "", "#" + name); } catch (e) { /* file:// */ }
+    }
+
+    if (name === "about") { probeAbout(); }
+
+    // The two data screens poll different endpoints, so refresh immediately
+    // rather than leaving a stale pane visible for up to two seconds.
+    load();
+  }
+
+  function probeAbout() {
+    if (state.aboutProbed) { return; }
+    state.aboutProbed = true;
+
+    fetch(ABOUT_URL, { method: "HEAD", cache: "no-store" })
+      .then(function (res) {
+        if (!res.ok) { throw new Error("absent"); }
+        el.aboutFrame.src = ABOUT_URL;
+        show(el.aboutFrame, true);
+        show(el.aboutMissing, false);
+      })
+      .catch(function () {
+        show(el.aboutFrame, false);
+        show(el.aboutMissing, true);
+      });
   }
 
   // ---------- queue rendering ----------
@@ -156,7 +300,7 @@
 
   function renderQueue() {
     var items = visibleReviews();
-    el.queueCount.textContent = items.length;
+    el.queueCount.textContent = items.length + " pending";
 
     show(el.queueLoading, !state.loadedOnce);
     if (!state.loadedOnce) {
@@ -247,24 +391,38 @@
     state.renderedDetailId = r.packet_id;
 
     var p = r.packet || {};
+    var prov = p.provenance || {};
     el.detail.textContent = "";
 
-    // header: role, stage, contributor
+    // header: role, status, proposal, contributor
     var head = elem("div", "detail-head");
     var roleRow = elem("div", "detail-role");
     roleRow.appendChild(elem("span", "role", p.role || "unknown role"));
     if (p.stage) { roleRow.appendChild(elem("span", "q-stage", p.stage)); }
+    roleRow.appendChild(statusPill(r.status));
     head.appendChild(roleRow);
+    head.appendChild(elem("p", "proposal", p.proposal || ""));
     head.appendChild(elem("div", "detail-contributor",
       (p.contributor || "unknown contributor") + "  ·  submitted " + fmtTime(r.created_at)));
-    head.appendChild(elem("p", "proposal", p.proposal || ""));
     el.detail.appendChild(head);
+
+    // provenance at a glance
+    var meta = elem("div", "meta-row");
+    meta.appendChild(metaCell("Contributor", p.contributor || "—"));
+    meta.appendChild(metaCell("Component", prov.component_id || "—"));
+    meta.appendChild(metaCell("Run", prov.run_id || "—"));
+    meta.appendChild(metaCell("Parent packets",
+      (prov.parent_packet_ids && prov.parent_packet_ids.length)
+        ? prov.parent_packet_ids.join(", ")
+        : "none"));
+    meta.appendChild(metaCell("Packet", r.packet_id));
+    el.detail.appendChild(meta);
 
     // inputs / assumptions
     el.detail.appendChild(listBlock("Inputs", p.inputs));
     el.detail.appendChild(listBlock("Assumptions", p.assumptions));
 
-    // parameters table
+    // parameters table — unit and source are part of the reasoning record
     var paramWrap = elem("div", "block");
     paramWrap.appendChild(elem("h3", null, "Parameters"));
     if (p.parameters && p.parameters.length) {
@@ -299,31 +457,8 @@
     }
     el.detail.appendChild(paramWrap);
 
-    // rationale
     el.detail.appendChild(textBlock("Rationale", p.rationale || ""));
-
-    // uncertainties
     el.detail.appendChild(listBlock("Uncertainties", p.uncertainties, "block-uncertain"));
-
-    // provenance
-    var prov = p.provenance || {};
-    var provWrap = elem("div", "block");
-    provWrap.appendChild(elem("h3", null, "Provenance"));
-    var dl = elem("dl", "prov");
-    dl.appendChild(elem("dt", null, "Run"));
-    dl.appendChild(elem("dd", null, prov.run_id || "—"));
-    dl.appendChild(elem("dt", null, "Component"));
-    dl.appendChild(elem("dd", null, prov.component_id || "—"));
-    dl.appendChild(elem("dt", null, "Parents"));
-    if (prov.parent_packet_ids && prov.parent_packet_ids.length) {
-      dl.appendChild(elem("dd", null, prov.parent_packet_ids.join(", ")));
-    } else {
-      dl.appendChild(elem("dd", "none", "No parent packets — this starts a chain."));
-    }
-    dl.appendChild(elem("dt", null, "Packet"));
-    dl.appendChild(elem("dd", null, r.packet_id));
-    provWrap.appendChild(dl);
-    el.detail.appendChild(provWrap);
 
     // payload
     if (p.payload && Object.keys(p.payload).length) {
@@ -331,6 +466,74 @@
       payWrap.appendChild(elem("h3", null, "Payload"));
       payWrap.appendChild(elem("pre", "payload", JSON.stringify(p.payload, null, 2)));
       el.detail.appendChild(payWrap);
+    }
+  }
+
+  // ---------- history rendering ----------
+
+  function filteredHistory() {
+    if (state.historyFilter === "all") { return state.history; }
+    return state.history.filter(function (r) { return r.status === state.historyFilter; });
+  }
+
+  function historySignature(items) {
+    return JSON.stringify([state.historyFilter, items.map(function (r) {
+      var d = r.decision || {};
+      return [r.packet_id, r.status, d.reviewer, d.note, d.decided_at];
+    })]);
+  }
+
+  function renderHistory() {
+    var items = filteredHistory();
+
+    show(el.historyLoading, !state.historyLoadedOnce);
+    if (!state.historyLoadedOnce) {
+      show(el.historyList, false);
+      show(el.historyEmpty, false);
+      return;
+    }
+
+    show(el.historyEmpty, items.length === 0);
+    show(el.historyList, items.length > 0);
+
+    // Same discipline as the queue: no rebuild unless the content changed.
+    var sig = historySignature(items);
+    if (sig === state.historySig) { return; }
+    state.historySig = sig;
+
+    el.historyList.textContent = "";
+
+    items.forEach(function (r) {
+      var p = r.packet || {};
+      var d = r.decision || {};
+      var li = document.createElement("li");
+
+      var top = elem("div", "h-top");
+      top.appendChild(elem("span", "h-id", shortId(r.packet_id)));
+      top.appendChild(statusPill(r.status));
+      if (p.stage) { top.appendChild(elem("span", "q-stage", p.stage)); }
+      li.appendChild(top);
+
+      li.appendChild(elem("p", "h-proposal", p.proposal || ""));
+
+      var who = (p.contributor || "unknown contributor")
+        + "  ·  reviewed by " + (d.reviewer || "unknown")
+        + "  ·  " + fmtTime(d.decided_at);
+      li.appendChild(elem("div", "h-meta", who));
+
+      if (d.note) {
+        li.appendChild(elem("p", "h-note", "“" + d.note + "”"));
+      }
+
+      el.historyList.appendChild(li);
+    });
+  }
+
+  function markHistoryFilter() {
+    var btns = el.historyFilters.querySelectorAll("button[data-filter]");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute("aria-pressed",
+        btns[i].getAttribute("data-filter") === state.historyFilter ? "true" : "false");
     }
   }
 
@@ -407,6 +610,20 @@
     renderDecision();
   }
 
+  function applyHistory(list) {
+    var decided = (Array.isArray(list) ? list : []).filter(function (r) {
+      return r && r.status && r.status !== "pending";
+    });
+    decided.sort(function (a, b) {
+      var da = a.decision && a.decision.decided_at ? new Date(a.decision.decided_at) : 0;
+      var db = b.decision && b.decision.decided_at ? new Date(b.decision.decided_at) : 0;
+      return db - da;
+    });
+    state.history = decided;
+    state.historyLoadedOnce = true;
+    renderHistory();
+  }
+
   /* True when this response is the newest one seen. An older response that
      arrives late must be dropped, not applied, or it reverts the queue. */
   function isFreshest(seq) {
@@ -415,63 +632,92 @@
     return true;
   }
 
+  function getJSON(url) {
+    return fetch(url, {
+      headers: { "Accept": "application/json" },
+      cache: "no-store"
+    }).then(function (res) {
+      if (!res.ok) { throw new Error("API returned " + res.status); }
+      return res.json();
+    });
+  }
+
+  function queueFailed(message) {
+    state.loadedOnce = true;
+    el.queueError.textContent = message;
+    show(el.queueError, true);
+    renderQueue();
+  }
+
+  function historyFailed(message) {
+    state.historyLoadedOnce = true;
+    el.historyError.textContent = message;
+    show(el.historyError, true);
+    show(el.historyList, false);
+    show(el.historyEmpty, false);
+  }
+
   function loadMock(seq) {
-    return fetch(MOCK_URL, { cache: "no-store" })
-      .then(function (res) {
-        if (!res.ok) { throw new Error("mock fixture returned " + res.status); }
-        return res.json();
-      })
+    // History needs the decided fixture; every other screen needs pending.
+    var wantHistory = state.screen === "history";
+    var url = wantHistory ? MOCK_DECIDED_URL : MOCK_PENDING_URL;
+
+    return getJSON(url)
       .then(function (data) {
         if (!isFreshest(seq)) { return; }
-        show(el.queueError, false);
         setConn("mock", "Mock fixture");
-        applyReviews(data.reviews);
+        if (wantHistory) {
+          show(el.historyError, false);
+          applyHistory(data.reviews);
+        } else {
+          show(el.queueError, false);
+          applyReviews(data.reviews);
+        }
       })
       .catch(function (err) {
         if (!isFreshest(seq)) { return; }
         setConn("error", "Mock failed");
-        state.loadedOnce = true;
-        el.queueError.textContent = "Could not load the mock fixture: " + err.message;
-        show(el.queueError, true);
-        renderQueue();
+        var msg = "Could not load the mock fixture: " + err.message;
+        if (wantHistory) { historyFailed(msg); } else { queueFailed(msg); }
       });
   }
 
   function loadLive(seq) {
-    return fetch(API_REVIEWS + "?status=pending", {
-      headers: { "Accept": "application/json" },
-      cache: "no-store"
-    })
-      .then(function (res) {
-        if (!res.ok) { throw new Error("API returned " + res.status); }
-        return res.json();
-      })
+    /* History needs terminal packets, which the frozen contract exposes by
+       omitting the status filter. Every other screen polls the pending
+       filter, which is the behavior the lane requires. */
+    var wantHistory = state.screen === "history";
+    var url = wantHistory ? API_REVIEWS : API_REVIEWS + "?status=pending";
+
+    return getJSON(url)
       .then(function (data) {
         if (!isFreshest(seq)) { return; }
-        show(el.queueError, false);
         setConn("live", "Live · polling every 2s");
-        applyReviews(data.reviews);
+        if (wantHistory) {
+          show(el.historyError, false);
+          applyHistory(data.reviews);
+        } else {
+          show(el.queueError, false);
+          applyReviews(data.reviews);
+        }
       })
       .catch(function (err) {
         if (!isFreshest(seq)) { return; }
         setConn("error", "Disconnected");
-        state.loadedOnce = true;
-        el.queueError.textContent =
-          "Cannot reach the review API (" + err.message +
-          "). Retrying every 2s. Start Chirp on port 9900, or append ?mock=1 to work offline.";
-        show(el.queueError, true);
-        renderQueue();
+        var msg = "Cannot reach the review API (" + err.message +
+          "). Retrying every 2s. Start Chirp on port 9900, or turn on " +
+          "Mock mode from the Connect screen to work offline.";
+        if (wantHistory) { historyFailed(msg); } else { queueFailed(msg); }
       });
   }
-
-  var fetchReviews = IS_MOCK ? loadMock : loadLive;
 
   /* One poll in flight at a time. A slow backend must not let requests stack
      up behind each other and land out of order. Always resolves. */
   function load() {
     if (state.polling) { return Promise.resolve(); }
     state.polling = true;
-    return fetchReviews(++state.pollSeq).then(function () {
+    var fetcher = state.mock ? loadMock : loadLive;
+    return fetcher(++state.pollSeq).then(function () {
       state.polling = false;
     });
   }
@@ -482,6 +728,34 @@
     load().then(function () {
       setTimeout(pollLoop, POLL_MS);
     });
+  }
+
+  function setMock(on) {
+    if (state.mock === on) { return; }
+    state.mock = on;
+
+    // Different source of truth, so drop everything derived from the old one.
+    state.reviews = [];
+    state.history = [];
+    state.decided = {};
+    state.loadedOnce = false;
+    state.historyLoadedOnce = false;
+    state.queueSig = null;
+    state.historySig = null;
+    state.renderedDetailId = null;
+    setSelection(null);
+
+    show(el.queueError, false);
+    show(el.historyError, false);
+    show(el.mockBadge, on);
+    el.mockToggle.setAttribute("aria-checked", on ? "true" : "false");
+    setConn(on ? "mock" : "idle", on ? "Mock fixture" : "Connecting…");
+
+    renderQueue();
+    renderDetail();
+    renderDecision();
+    renderHistory();
+    load();
   }
 
   // ---------- submitting a decision ----------
@@ -525,9 +799,27 @@
     setButtonsDisabled(true);
 
     // Mock mode has no backend, so resolve the decision locally.
-    if (IS_MOCK) {
+    if (state.mock) {
+      var target = findReview(id);
       setTimeout(function () {
         state.decided[id] = true;
+        if (target) {
+          // Keep the mock coherent: a decided packet shows up under History.
+          state.history = [{
+            packet_id: target.packet_id,
+            created_at: target.created_at,
+            status: STATUS_BY_ACTION[action],
+            packet: target.packet,
+            decision: {
+              action: action,
+              reviewer: reviewer,
+              note: note || null,
+              decided_at: new Date().toISOString()
+            }
+          }].concat(state.history);
+          state.historySig = null;
+          renderHistory();
+        }
         setSelection(null);
         state.submitting = false;
         setButtonsDisabled(false);
@@ -590,6 +882,30 @@
 
   // ---------- wiring ----------
 
+  el.tabs.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-screen]");
+    if (btn) { setScreen(btn.getAttribute("data-screen")); }
+  });
+
+  window.addEventListener("hashchange", function () {
+    var hash = (window.location.hash || "").replace(/^#/, "");
+    if (SCREENS.indexOf(hash) !== -1 && hash !== state.screen) { setScreen(hash); }
+  });
+
+  el.historyFilters.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-filter]");
+    if (!btn) { return; }
+    state.historyFilter = btn.getAttribute("data-filter");
+    markHistoryFilter();
+    renderHistory();
+  });
+
+  el.mockToggle.addEventListener("click", function () {
+    setMock(el.mockToggle.getAttribute("aria-checked") !== "true");
+  });
+
+  el.enterWorkbench.addEventListener("click", function () { setScreen("workbench"); });
+
   el.decisionForm.addEventListener("submit", function (e) { e.preventDefault(); });
 
   el.decisionForm.addEventListener("click", function (e) {
@@ -602,14 +918,19 @@
   el.reviewer.addEventListener("input", clearFormError);
   show(el.noteReq, true);
 
-  if (IS_MOCK) {
-    show(el.mockBadge, true);
-    setConn("mock", "Mock fixture");
-  }
+  // ---------- boot ----------
 
-  // Initial paint, then poll.
+  el.serviceOrigin.textContent = window.location.origin || "(same origin)";
+  el.mockToggle.setAttribute("aria-checked", state.mock ? "true" : "false");
+  show(el.mockBadge, state.mock);
+  setConn(state.mock ? "mock" : "idle", state.mock ? "Mock fixture" : "Connecting…");
+
+  markHistoryFilter();
+  setScreen(state.screen);
+
   renderQueue();
   renderDetail();
   renderDecision();
+  renderHistory();
   pollLoop();
 })();

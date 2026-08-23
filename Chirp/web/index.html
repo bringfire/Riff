@@ -10,10 +10,16 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="mark" aria-hidden="true"></span>
-    <h1>Riff</h1>
-    <span class="brand-sub">Review workbench</span>
+    <div class="brand-eyebrow">Human-in-the-loop review</div>
+    <h1 class="brand-title">RIFF <span class="brand-sub">as an extension of CHIRP</span></h1>
   </div>
+
+  <nav id="tabs" class="tabs" aria-label="Screens">
+    <button type="button" class="tab" data-screen="about">About</button>
+    <button type="button" class="tab" data-screen="connect">Connect</button>
+    <button type="button" class="tab" data-screen="workbench">Workbench</button>
+    <button type="button" class="tab" data-screen="history">History</button>
+  </nav>
 
   <div class="topbar-status">
     <span id="mockBadge" class="badge badge-mock" hidden>Mock mode</span>
@@ -26,79 +32,167 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-<main class="layout">
+<main class="screens">
 
-  <!-- ---------- LEFT: pending queue ---------- -->
-  <section class="pane pane-queue" aria-labelledby="queueHeading">
-    <div class="pane-head">
-      <h2 id="queueHeading">Pending</h2>
-      <span id="queueCount" class="count" aria-live="polite">&mdash;</span>
-    </div>
-
-    <div class="pane-body">
-      <p id="queueLoading" class="state state-loading">Loading queue&hellip;</p>
-      <p id="queueEmpty" class="state state-empty" hidden>
-        No packets awaiting review.<br>
-        <span class="state-sub">Submit one from Grasshopper to see it here.</span>
-      </p>
-      <p id="queueError" class="state state-error" hidden></p>
-      <ul id="queueList" class="queue" hidden></ul>
-    </div>
-  </section>
-
-  <!-- ---------- CENTER: packet detail ---------- -->
-  <section class="pane pane-detail" aria-labelledby="detailHeading">
-    <div class="pane-head">
-      <h2 id="detailHeading">Packet</h2>
-      <span id="detailId" class="mono-id"></span>
-    </div>
-
-    <div class="pane-body">
-      <p id="detailEmpty" class="state state-empty">
-        Select a packet from the queue to inspect it.
-      </p>
-      <article id="detail" class="detail" hidden></article>
-    </div>
-  </section>
-
-  <!-- ---------- RIGHT: decision ---------- -->
-  <section class="pane pane-decision" aria-labelledby="decisionHeading">
-    <div class="pane-head">
-      <h2 id="decisionHeading">Decision</h2>
-    </div>
-
-    <div class="pane-body">
-      <p id="decisionEmpty" class="state state-empty">
-        No packet selected.
-      </p>
-
-      <form id="decisionForm" class="decision" hidden>
-        <label class="field">
-          <span class="field-label">Reviewer <span class="req">required</span></span>
-          <input id="reviewer" name="reviewer" type="text" autocomplete="name"
-                 placeholder="Your name">
-        </label>
-
-        <label class="field">
-          <span class="field-label">
-            Note <span id="noteReq" class="req" hidden>required for correction and reject</span>
-          </span>
-          <textarea id="note" name="note" rows="7"
-                    placeholder="Optional for accept. Required to request a correction or reject."></textarea>
-        </label>
-
-        <p id="formError" class="form-error" hidden></p>
-
-        <div class="actions">
-          <button type="button" class="btn btn-accept"  data-action="accept">Accept</button>
-          <button type="button" class="btn btn-correct" data-action="request_correction">Request correction</button>
-          <button type="button" class="btn btn-reject"  data-action="reject">Reject</button>
-        </div>
-
-        <p class="decision-hint">
-          Every decision is final. A decided packet cannot be revisited.
+  <!-- ============ ABOUT ============ -->
+  <section id="screenAbout" class="screen screen-about" aria-labelledby="aboutHeading" hidden>
+    <h2 id="aboutHeading" class="sr-only">About Riff</h2>
+    <iframe id="aboutFrame" class="about-frame" title="Riff workflow overview" hidden></iframe>
+    <div id="aboutMissing" class="about-missing" hidden>
+      <div class="card card-narrow">
+        <h3>No workflow overview installed</h3>
+        <p>
+          This screen renders <code>Chirp/web/about.html</code> when that file is present.
+          Drop the workflow overview there and reload &mdash; no code change needed.
         </p>
-      </form>
+        <p class="hint">
+          It is served same-origin alongside the rest of the workbench, so it may be any
+          self-contained HTML document.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONNECT ============ -->
+  <section id="screenConnect" class="screen screen-connect" aria-labelledby="connectHeading" hidden>
+    <div class="card">
+      <div class="card-head">
+        <h2 id="connectHeading">Connect to Chirp</h2>
+        <p class="card-sub">Riff talks to the Chirp review API running alongside Grasshopper.</p>
+      </div>
+
+      <div class="field-block">
+        <div class="mono-label">Service origin</div>
+        <div class="readonly-field"><span id="serviceOrigin" class="mono">&mdash;</span></div>
+        <p class="hint">
+          Same-origin by contract. The workbench is served by Chirp itself, so there is
+          no URL to configure and no CORS involved.
+        </p>
+      </div>
+
+      <div class="row-block">
+        <div class="row-text">
+          <div class="row-title">Connection</div>
+          <div id="connectionHint" class="row-sub">&mdash;</div>
+        </div>
+        <div class="row-status">
+          <span id="connectionDot" class="dot" aria-hidden="true"></span>
+          <span id="connectionLabel" class="mono">&mdash;</span>
+        </div>
+      </div>
+
+      <div class="row-block">
+        <div class="row-text">
+          <div class="row-title">Mock mode</div>
+          <div class="row-sub">Demo data, no live backend needed</div>
+        </div>
+        <button type="button" id="mockToggle" class="toggle" role="switch"
+                aria-checked="false" aria-label="Mock mode">
+          <span class="knob" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <button type="button" id="enterWorkbench" class="btn btn-primary">Enter workbench &rarr;</button>
+    </div>
+  </section>
+
+  <!-- ============ WORKBENCH ============ -->
+  <section id="screenWorkbench" class="screen screen-workbench" hidden>
+
+    <!-- LEFT: pending queue -->
+    <section class="pane pane-queue" aria-labelledby="queueHeading">
+      <div class="pane-head">
+        <h2 id="queueHeading" class="mono-label">Pending queue</h2>
+        <span class="count-wrap">
+          <span class="pulse" aria-hidden="true"></span>
+          <span id="queueCount" class="count mono" aria-live="polite">&mdash;</span>
+        </span>
+      </div>
+
+      <div class="pane-body">
+        <p id="queueLoading" class="state state-loading">Loading queue&hellip;</p>
+        <p id="queueEmpty" class="state state-empty" hidden>
+          Queue is empty.<br>
+          <span class="state-sub">Waiting for Grasshopper submissions.</span>
+        </p>
+        <p id="queueError" class="state state-error" hidden></p>
+        <ul id="queueList" class="queue" hidden></ul>
+      </div>
+    </section>
+
+    <!-- CENTER: packet detail -->
+    <section class="pane pane-detail" aria-labelledby="detailHeading">
+      <div class="pane-head">
+        <h2 id="detailHeading" class="mono-label">Packet</h2>
+        <span id="detailId" class="mono-id"></span>
+      </div>
+
+      <div class="pane-body">
+        <p id="detailEmpty" class="state state-empty">
+          Select a packet from the queue to review it.
+        </p>
+        <article id="detail" class="detail" hidden></article>
+      </div>
+    </section>
+
+    <!-- RIGHT: decision -->
+    <section class="pane pane-decision" aria-labelledby="decisionHeading">
+      <div class="pane-head">
+        <h2 id="decisionHeading" class="mono-label">Reviewer decision</h2>
+      </div>
+
+      <div class="pane-body">
+        <p id="decisionEmpty" class="state state-empty">No packet selected.</p>
+
+        <form id="decisionForm" class="decision" hidden>
+          <label class="field">
+            <span class="field-label">Reviewer name <span class="req">required</span></span>
+            <input id="reviewer" name="reviewer" type="text" autocomplete="name"
+                   placeholder="e.g. Priya">
+          </label>
+
+          <label class="field">
+            <span class="field-label">
+              Note <span id="noteReq" class="req" hidden>required for correction and reject</span>
+            </span>
+            <textarea id="note" name="note" rows="5"
+                      placeholder="Required for correction or rejection."></textarea>
+          </label>
+
+          <p id="formError" class="form-error" hidden></p>
+
+          <div class="actions">
+            <button type="button" class="btn btn-accept"  data-action="accept">Accept</button>
+            <button type="button" class="btn btn-correct" data-action="request_correction">Request correction</button>
+            <button type="button" class="btn btn-reject"  data-action="reject">Reject</button>
+          </div>
+
+          <p class="decision-hint">
+            Decisions are terminal &mdash; each packet may only be decided once.
+          </p>
+        </form>
+      </div>
+    </section>
+
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section id="screenHistory" class="screen screen-history" aria-labelledby="historyHeading" hidden>
+    <div class="history-head">
+      <h2 id="historyHeading" class="mono-label">Decided packets</h2>
+      <div id="historyFilters" class="filters" role="group" aria-label="Filter by decision">
+        <button type="button" class="filter" data-filter="all">All</button>
+        <button type="button" class="filter" data-filter="accepted">Accepted</button>
+        <button type="button" class="filter" data-filter="correction_requested">Correction</button>
+        <button type="button" class="filter" data-filter="rejected">Rejected</button>
+      </div>
+    </div>
+
+    <div class="history-body">
+      <p id="historyLoading" class="state state-loading">Loading decided packets&hellip;</p>
+      <p id="historyEmpty" class="state state-empty" hidden>No decided packets yet for this filter.</p>
+      <p id="historyError" class="state state-error" hidden></p>
+      <ul id="historyList" class="history" hidden></ul>
     </div>
   </section>
 

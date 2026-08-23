@@ -1,0 +1,139 @@
+{
+  "reviews": [
+    {
+      "packet_id": "b71d3e08-5c42-4a19-8f6b-2d90ac314e55",
+      "created_at": "2026-08-22T21:18:40Z",
+      "status": "accepted",
+      "packet": {
+        "stage": "structure",
+        "role": "critic",
+        "contributor": "Chirp critic (claude-opus-5)",
+        "proposal": "Brace the north gable with two diagonal members at 38 degrees to bring lateral drift under the 1/240 span limit at the modelled wind case.",
+        "inputs": [
+          "Lateral wind load case: 1.2 kPa on the north elevation",
+          "Gable clear span: 9.4 m",
+          "Timber grade from envelope stage: GL24h glulam"
+        ],
+        "assumptions": [
+          "Existing timber grade unchanged from the envelope packet",
+          "Connections detailed as slotted-in steel plates with dowels",
+          "No seismic case governs at this site"
+        ],
+        "parameters": [
+          { "name": "brace_count", "value": 2, "unit": "count", "source": "critic" },
+          { "name": "brace_angle", "value": 38, "unit": "deg", "source": "critic" },
+          { "name": "drift_ratio", "value": 0.0038, "unit": "ratio", "source": "derived" },
+          { "name": "drift_limit", "value": 0.0042, "unit": "ratio", "source": "code" }
+        ],
+        "rationale": "Two symmetric diagonals at 38 degrees resolve the lateral load path into the pier foundations without introducing a new bearing line. Computed drift lands at 0.0038, inside the 1/240 limit of 0.0042, leaving headroom for the connection slip the detail will add.",
+        "uncertainties": [
+          "Connection slip not modelled explicitly; assumed rigid",
+          "Wind case is regional, not a site-specific study"
+        ],
+        "payload": {
+          "brace_axis": "north-gable",
+          "drift_check": "pass",
+          "governing_case": "wind-lateral"
+        },
+        "provenance": {
+          "run_id": "run-2026-08-22-alpine-01",
+          "component_id": "chirp-critic-8c22",
+          "parent_packet_ids": ["3f2a91c4-7b18-4e6d-9a03-1c5e8d4b7f20"]
+        }
+      },
+      "decision": {
+        "action": "accept",
+        "reviewer": "Priya",
+        "note": "Drift check reads correctly against the envelope geometry. Released for detailing.",
+        "decided_at": "2026-08-22T21:26:03Z"
+      }
+    },
+    {
+      "packet_id": "c05f8b21-9e37-4d5a-b104-6a8f2c73d918",
+      "created_at": "2026-08-22T20:44:12Z",
+      "status": "correction_requested",
+      "packet": {
+        "stage": "circulation",
+        "role": "planner",
+        "contributor": "Chirp planner (claude-opus-5)",
+        "proposal": "Route the entry mudroom directly off the ski store so the wet-to-dry path loses one turn and stays under 4 m.",
+        "inputs": [
+          "Ski store capacity: 6 pairs on a north wall rack",
+          "Mudroom footprint allowance: 5.2 m2",
+          "Entry approach from the south-east trail"
+        ],
+        "assumptions": [
+          "Ski store position fixed at the north wall",
+          "Bench depth 450 mm, unchanged from the brief"
+        ],
+        "parameters": [
+          { "name": "mudroom_area", "value": 5.2, "unit": "m2", "source": "planner" },
+          { "name": "wet_dry_path", "value": 3.8, "unit": "m", "source": "derived" },
+          { "name": "turns", "value": 1, "unit": "count", "source": "derived" }
+        ],
+        "rationale": "Removing a turn from the wet-to-dry path shortens it to 3.8 m and keeps meltwater off the living-level floor finish, which the circulation trace flagged as the dominant wear path.",
+        "uncertainties": [
+          "Door swing against the storage bench not checked",
+          "Drainage falls in the mudroom slab not yet set"
+        ],
+        "payload": {
+          "path_polyline": "entry->mudroom->ski_store",
+          "path_length_m": 3.8
+        },
+        "provenance": {
+          "run_id": "run-2026-08-22-alpine-01",
+          "component_id": "chirp-planner-4a91",
+          "parent_packet_ids": []
+        }
+      },
+      "decision": {
+        "action": "request_correction",
+        "reviewer": "Marcus",
+        "note": "The door swing clashes with the storage bench at the 450 mm depth you assumed. Re-run with the swing checked and resubmit.",
+        "decided_at": "2026-08-22T20:51:47Z"
+      }
+    },
+    {
+      "packet_id": "e93c7a45-1f60-42b8-9c27-83b5de014a6f",
+      "created_at": "2026-08-22T20:02:55Z",
+      "status": "rejected",
+      "packet": {
+        "stage": "envelope",
+        "role": "interpreter",
+        "contributor": "Chirp interpreter (claude-opus-5)",
+        "proposal": "Set the roof pitch to 55 degrees to minimise retained snow depth across the whole roof plane.",
+        "inputs": [
+          "Design ground snow load: 4.8 kPa"
+        ],
+        "assumptions": [
+          "No eave overhang constraint applied",
+          "Ridge height limit not binding"
+        ],
+        "parameters": [
+          { "name": "ridge_angle", "value": 55, "unit": "deg", "source": "interpreter" },
+          { "name": "retained_snow", "value": 0.11, "unit": "m", "source": "derived" }
+        ],
+        "rationale": "Steeper pitch monotonically reduces retained snow depth, so 55 degrees minimises the structural snow case in isolation.",
+        "uncertainties": [
+          "Eave clearance at this pitch not checked against the entry path",
+          "Ridge height against the 6 m visibility limit not evaluated"
+        ],
+        "payload": {
+          "ridge_angle": 55,
+          "checked_constraints": ["snow_load"]
+        },
+        "provenance": {
+          "run_id": "run-2026-08-22-alpine-01",
+          "component_id": "chirp-interpreter-2f70",
+          "parent_packet_ids": []
+        }
+      },
+      "decision": {
+        "action": "reject",
+        "reviewer": "Priya",
+        "note": "Optimises one constraint and drops the two that bind. Eave clearance and the 6 m ridgeline limit are both in the brief — resubmit with those as declared inputs.",
+        "decided_at": "2026-08-22T20:09:31Z"
+      }
+    }
+  ]
+}
