@@ -271,12 +271,6 @@ def test_presenter_javascript_validates_decision_before_local_update():
     assert source.index(validation) < source.index(update)
 
 
-def test_presenter_uses_fixed_light_mode():
-    source = (WEB_DIR / "presenter.css").read_text(encoding="utf-8")
-    assert "color-scheme: light" in source
-    assert "color-scheme: dark" not in source
-
-
 def test_riff_snapshot_routes_and_existing_routes_are_registered():
     paths = {route.path for route in app.routes}
     assert "/api/riff/snapshots" in paths

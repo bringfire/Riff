@@ -1,19 +1,19 @@
 :root {
-  color-scheme: light;
-  --bg: oklch(0.975 0.008 255);
-  --surface: oklch(1 0 0);
-  --surface-deep: oklch(0.955 0.008 255);
-  --surface-active: oklch(0.93 0.035 205);
-  --border: oklch(0.87 0.012 255);
-  --border-strong: oklch(0.78 0.018 255);
-  --text: oklch(0.25 0.018 255);
-  --text-soft: oklch(0.36 0.018 255);
-  --muted: oklch(0.50 0.018 255);
-  --faint: oklch(0.66 0.018 255);
-  --cyan: oklch(0.55 0.13 220);
-  --green: oklch(0.52 0.14 145);
-  --amber: oklch(0.62 0.14 80);
-  --red: oklch(0.55 0.18 25);
+  color-scheme: dark;
+  --bg: oklch(0.17 0.012 255);
+  --surface: oklch(0.195 0.012 255);
+  --surface-deep: oklch(0.16 0.012 255);
+  --surface-active: oklch(0.24 0.05 205);
+  --border: oklch(0.29 0.012 255);
+  --border-strong: oklch(0.32 0.012 255);
+  --text: oklch(0.93 0.008 90);
+  --text-soft: oklch(0.82 0.012 255);
+  --muted: oklch(0.62 0.012 255);
+  --faint: oklch(0.52 0.012 255);
+  --cyan: oklch(0.75 0.13 205);
+  --green: oklch(0.72 0.15 145);
+  --amber: oklch(0.78 0.14 80);
+  --red: oklch(0.70 0.18 25);
 }
 
 * {
@@ -50,7 +50,7 @@ a {
 }
 
 ::placeholder {
-  color: oklch(0.58 0.012 255);
+  color: oklch(0.55 0.012 255);
 }
 
 ::-webkit-scrollbar {
@@ -59,7 +59,7 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.75 0.012 255);
+  background: oklch(0.32 0.012 255);
   border-radius: 8px;
 }
 
@@ -80,7 +80,7 @@ a {
   justify-content: space-between;
   gap: 24px;
   flex-wrap: wrap;
-  border-bottom: 1px solid oklch(0.84 0.012 255);
+  border-bottom: 1px solid oklch(0.30 0.012 255);
   padding: 24px 32px 16px;
 }
 
@@ -99,7 +99,7 @@ a {
 }
 
 .eyebrow {
-  color: oklch(0.48 0.02 255);
+  color: oklch(0.68 0.02 255);
   font-size: 11px;
   letter-spacing: 0.16em;
 }
@@ -112,7 +112,7 @@ h1 {
 }
 
 h1 span {
-  color: oklch(0.48 0.02 255);
+  color: oklch(0.55 0.02 255);
   font-size: 16px;
   font-weight: 400;
 }
@@ -126,10 +126,10 @@ h1 span {
 .pill {
   min-height: 38px;
   padding: 9px 14px;
-  border: 1px solid oklch(0.82 0.012 255);
+  border: 1px solid oklch(0.30 0.012 255);
   border-radius: 999px;
   background: transparent;
-  color: oklch(0.40 0.012 255);
+  color: oklch(0.75 0.012 255);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
@@ -138,14 +138,14 @@ h1 span {
 
 .pill:hover:not(:disabled),
 .pill:focus-visible {
-  border-color: oklch(0.55 0.09 205);
-  color: oklch(0.35 0.10 205);
+  border-color: oklch(0.48 0.09 205);
+  color: oklch(0.90 0.10 205);
 }
 
 .pill-active {
-  border-color: oklch(0.58 0.13 205);
-  background: oklch(0.93 0.04 205);
-  color: oklch(0.34 0.10 205);
+  border-color: oklch(0.55 0.13 205);
+  background: oklch(0.28 0.07 205);
+  color: oklch(0.90 0.10 205);
 }
 
 .pill:disabled {
@@ -186,7 +186,7 @@ h1 span {
   justify-content: space-between;
   gap: 12px;
   padding: 16px 18px 12px;
-  color: oklch(0.45 0.02 255);
+  color: oklch(0.66 0.02 255);
   font-size: 11px;
   letter-spacing: 0.14em;
 }
@@ -195,7 +195,7 @@ h1 span {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: oklch(0.50 0.012 255);
+  color: oklch(0.58 0.012 255);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -222,7 +222,7 @@ h1 span {
   flex-direction: column;
   gap: 6px;
   padding: 12px 14px;
-  border: 1px solid oklch(0.85 0.012 255);
+  border: 1px solid oklch(0.27 0.012 255);
   border-radius: 10px;
   background: var(--surface);
   text-align: left;
@@ -245,7 +245,7 @@ pre {
 }
 
 .node-id {
-  color: oklch(0.46 0.012 255);
+  color: oklch(0.60 0.012 255);
   font-size: 11px;
   overflow-wrap: anywhere;
 }
@@ -303,9 +303,9 @@ pre {
 }
 
 .error-message {
-  border: 1px solid oklch(0.68 0.10 25);
-  background: oklch(0.96 0.03 25);
-  color: oklch(0.45 0.13 25);
+  border: 1px solid oklch(0.35 0.10 25);
+  background: oklch(0.22 0.05 25);
+  color: oklch(0.84 0.13 25);
 }
 
 .review-section {
@@ -319,8 +319,8 @@ pre {
 }
 
 .review-section.emphasis-high {
-  border-color: oklch(0.62 0.10 205);
-  background: oklch(0.965 0.025 205);
+  border-color: oklch(0.48 0.10 205);
+  background: oklch(0.22 0.035 205);
 }
 
 .review-section h2,
@@ -337,7 +337,7 @@ pre {
 
 .review-section h3,
 .source-label {
-  color: oklch(0.45 0.02 255);
+  color: oklch(0.66 0.02 255);
   font-family: "IBM Plex Mono", Consolas, monospace;
   font-size: 11px;
   font-weight: 500;
@@ -363,7 +363,7 @@ pre {
 
 .source-list li {
   padding-left: 14px;
-  border-left: 2px solid oklch(0.82 0.012 255);
+  border-left: 2px solid oklch(0.30 0.012 255);
 }
 
 details {
@@ -386,7 +386,7 @@ pre {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-deep);
-  color: oklch(0.35 0.012 255);
+  color: oklch(0.82 0.012 255);
   font-size: 12px;
   line-height: 1.6;
   overflow: auto;
@@ -405,13 +405,13 @@ details pre {
   grid-template-columns: auto 1fr;
   gap: 6px 12px;
   padding: 14px 16px;
-  border: 1px solid oklch(0.68 0.08 205);
+  border: 1px solid oklch(0.40 0.08 205);
   border-radius: 10px;
-  background: oklch(0.97 0.025 205);
+  background: oklch(0.21 0.035 205);
 }
 
 .riff-annotation strong {
-  color: oklch(0.35 0.10 205);
+  color: oklch(0.90 0.10 205);
   font-size: 13px;
 }
 
@@ -437,9 +437,9 @@ details pre {
 .human-status {
   width: fit-content;
   padding: 4px 10px;
-  border: 1px solid oklch(0.62 0.13 205);
+  border: 1px solid oklch(0.42 0.13 205);
   border-radius: 999px;
-  color: oklch(0.35 0.13 205) !important;
+  color: oklch(0.85 0.13 205) !important;
   font-family: "IBM Plex Mono", Consolas, monospace;
   font-size: 10.5px !important;
   letter-spacing: 0.08em;
@@ -492,21 +492,21 @@ details pre {
 }
 
 .decision-accept {
-  border: 1px solid oklch(0.62 0.14 145);
-  background: oklch(0.95 0.04 145);
-  color: oklch(0.34 0.13 145);
+  border: 1px solid oklch(0.45 0.14 145);
+  background: oklch(0.24 0.06 145);
+  color: oklch(0.90 0.13 145);
 }
 
 .decision-request_correction {
-  border: 1px solid oklch(0.68 0.12 80);
-  background: oklch(0.96 0.035 80);
-  color: oklch(0.40 0.13 80);
+  border: 1px solid oklch(0.45 0.12 80);
+  background: oklch(0.24 0.05 80);
+  color: oklch(0.88 0.13 80);
 }
 
 .decision-reject {
-  border: 1px solid oklch(0.68 0.12 25);
-  background: oklch(0.96 0.035 25);
-  color: oklch(0.42 0.14 25);
+  border: 1px solid oklch(0.45 0.12 25);
+  background: oklch(0.24 0.05 25);
+  color: oklch(0.86 0.14 25);
 }
 
 .human-controls button:disabled {
@@ -516,16 +516,16 @@ details pre {
 
 .form-message {
   padding: 8px 10px;
-  border: 1px solid oklch(0.68 0.10 25);
+  border: 1px solid oklch(0.35 0.10 25);
   border-radius: 8px;
-  background: oklch(0.96 0.03 25);
-  color: oklch(0.45 0.13 25);
+  background: oklch(0.22 0.05 25);
+  color: oklch(0.84 0.13 25);
   font-size: 12px;
 }
 
 .section-label {
   margin-bottom: 8px;
-  color: oklch(0.45 0.02 255);
+  color: oklch(0.66 0.02 255);
   font-size: 11px;
   letter-spacing: 0.14em;
 }
@@ -533,7 +533,7 @@ details pre {
 .source-badge {
   display: inline-flex;
   padding: 5px 9px;
-  border: 1px solid oklch(0.62 0.10 205);
+  border: 1px solid oklch(0.42 0.10 205);
   border-radius: 999px;
   color: var(--cyan);
   font-size: 10.5px;
@@ -554,14 +554,14 @@ details pre {
 }
 
 .snapshot-meta dt {
-  color: oklch(0.48 0.012 255);
+  color: oklch(0.58 0.012 255);
   font-size: 10px;
   letter-spacing: 0.12em;
 }
 
 .snapshot-meta dd {
   margin: 0;
-  color: oklch(0.35 0.012 255);
+  color: oklch(0.82 0.012 255);
   font-size: 12px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -600,7 +600,7 @@ details pre {
 }
 
 .trust-note strong {
-  color: oklch(0.42 0.012 255);
+  color: oklch(0.72 0.012 255);
   font-size: 12px;
 }
 
