@@ -20,6 +20,9 @@
   "use strict";
 
   var POLL_MS = 2000;
+  /* Deliberately under POLL_MS. fetch has no default timeout, so without this
+     a wedged connection hangs forever and takes the poll loop down with it. */
+  var REQUEST_TIMEOUT_MS = 1500;
   var API_REVIEWS = "/reviews";
   var MOCK_PENDING_URL = "mock/pending-reviews.json";
   var MOCK_DECIDED_URL = "mock/decided-reviews.json";
@@ -58,6 +61,7 @@
 
     reviews: [],          // pending packets currently shown
     history: [],          // decided packets, newest decision first
+    localDecided: [],     // mock-mode decisions, which no fixture knows about
     historyFilter: "all",
 
     selectedId: null,
@@ -72,9 +76,16 @@
     historySig: null,
     renderedDetailId: null,
 
+    /* A failed pane owns its own presentation until the next success. Without
+       these, any later render call re-shows "Queue is empty" beside the
+       connection error, and the reassuring half is the false one. */
+    queueErrored: false,
+    historyErrored: false,
+
     polling: false,       // a poll is in flight
+    reloadWhenIdle: false,// a screen change asked for data while a poll ran
     pollSeq: 0,           // increments per poll
-    appliedSeq: 0,        // highest poll already applied to the DOM
+    appliedSeq: 0,        // highest poll already fully rendered
 
     aboutProbed: false
   };
@@ -173,6 +184,21 @@
     return hh + ":" + mm + ":" + ss;
   }
 
+  /* History spans days, where a bare clock time is ambiguous. Same-day
+     decisions stay terse; older ones carry the date. */
+  function fmtWhen(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) { return iso; }
+    var now = new Date();
+    var sameDay = d.getFullYear() === now.getFullYear() &&
+                  d.getMonth() === now.getMonth() &&
+                  d.getDate() === now.getDate();
+    if (sameDay) { return fmtTime(iso); }
+    return String(d.getFullYear()) + "-" +
+      String(d.getMonth() + 1).padStart(2, "0") + "-" +
+      String(d.getDate()).padStart(2, "0") + " " + fmtTime(iso);
+  }
+
   function shortId(id) {
     return typeof id === "string" ? id.slice(0, 8) : String(id);
   }
@@ -265,9 +291,13 @@
         show(el.aboutFrame, true);
         show(el.aboutMissing, false);
       })
-      .catch(function () {
+      .catch(function (err) {
+        console.error("Riff: about.html probe failed", err);
         show(el.aboutFrame, false);
         show(el.aboutMissing, true);
+        /* Allow a later visit to retry. One transient failure should not pin
+           the fallback for the rest of the session. */
+        state.aboutProbed = false;
       });
   }
 
@@ -299,6 +329,9 @@
   }
 
   function renderQueue() {
+    // A failed load owns the pane until the next success; see queueFailed.
+    if (state.queueErrored) { return; }
+
     var items = visibleReviews();
     el.queueCount.textContent = items.length + " pending";
 
@@ -484,6 +517,9 @@
   }
 
   function renderHistory() {
+    // A failed load owns the pane until the next success; see historyFailed.
+    if (state.historyErrored) { return; }
+
     var items = filteredHistory();
 
     show(el.historyLoading, !state.historyLoadedOnce);
@@ -518,7 +554,7 @@
 
       var who = (p.contributor || "unknown contributor")
         + "  ·  reviewed by " + (d.reviewer || "unknown")
-        + "  ·  " + fmtTime(d.decided_at);
+        + "  ·  " + fmtWhen(d.decided_at);
       li.appendChild(elem("div", "h-meta", who));
 
       if (d.note) {
@@ -611,9 +647,17 @@
   }
 
   function applyHistory(list) {
-    var decided = (Array.isArray(list) ? list : []).filter(function (r) {
-      return r && r.status && r.status !== "pending";
+    /* Mock decisions exist only in this tab, so they must survive a reload of
+       the fixture; they are listed first so they win the de-duplication. */
+    var seen = {};
+    var decided = [];
+    state.localDecided.concat(Array.isArray(list) ? list : []).forEach(function (r) {
+      if (!r || !r.status || r.status === "pending") { return; }
+      if (seen[r.packet_id]) { return; }
+      seen[r.packet_id] = true;
+      decided.push(r);
     });
+
     decided.sort(function (a, b) {
       var da = a.decision && a.decision.decided_at ? new Date(a.decision.decided_at) : 0;
       var db = b.decision && b.decision.decided_at ? new Date(b.decision.decided_at) : 0;
@@ -624,110 +668,199 @@
     renderHistory();
   }
 
-  /* True when this response is the newest one seen. An older response that
-     arrives late must be dropped, not applied, or it reverts the queue. */
+  /* Freshness is a pure predicate, kept separate from recording it. A late
+     response must be dropped or it reverts the queue — but a response counts
+     as applied only once rendering has actually finished. Latching inside the
+     check would make the catch handler that runs straight after a render
+     error see a stale sequence and return silently, swallowing the error. */
   function isFreshest(seq) {
-    if (seq <= state.appliedSeq) { return false; }
-    state.appliedSeq = seq;
-    return true;
+    return seq > state.appliedSeq;
   }
 
+  function markApplied(seq) {
+    if (seq > state.appliedSeq) { state.appliedSeq = seq; }
+  }
+
+  /* fetch has no default timeout of its own, so an unanswered request would
+     hang forever, leave state.polling true, and stop the poll loop dead with
+     the header still reading "Live". */
   function getJSON(url) {
-    return fetch(url, {
-      headers: { "Accept": "application/json" },
-      cache: "no-store"
-    }).then(function (res) {
-      if (!res.ok) { throw new Error("API returned " + res.status); }
-      return res.json();
-    });
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var opts = { headers: { "Accept": "application/json" }, cache: "no-store" };
+    var timer = null;
+
+    if (controller) {
+      opts.signal = controller.signal;
+      timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+    }
+
+    function settled() {
+      if (timer) { clearTimeout(timer); timer = null; }
+    }
+
+    return fetch(url, opts).then(
+      function (res) {
+        settled();
+        if (!res.ok) { throw new Error("API returned " + res.status); }
+        return res.json();
+      },
+      function (err) {
+        settled();
+        if (err && err.name === "AbortError") {
+          throw new Error("request timed out after " + REQUEST_TIMEOUT_MS + "ms");
+        }
+        throw err;
+      }
+    );
   }
 
+  /* Symmetric with historyFailed. Never leave "Queue is empty. Waiting for
+     Grasshopper submissions." on screen beside a connection error: of the two
+     messages the reassuring one is the false one. */
   function queueFailed(message) {
     state.loadedOnce = true;
+    state.queueErrored = true;
+    state.queueSig = null;
+    queueButtons = {};
+    el.queueCount.textContent = "—";
     el.queueError.textContent = message;
     show(el.queueError, true);
-    renderQueue();
+    show(el.queueLoading, false);
+    show(el.queueList, false);
+    show(el.queueEmpty, false);
   }
 
   function historyFailed(message) {
     state.historyLoadedOnce = true;
+    state.historyErrored = true;
+    // Drop the rows as well, or a filter click un-hides stale ones under the error.
+    state.history = [];
+    state.historySig = null;
     el.historyError.textContent = message;
     show(el.historyError, true);
+    show(el.historyLoading, false);
     show(el.historyList, false);
     show(el.historyEmpty, false);
   }
 
-  function loadMock(seq) {
-    // History needs the decided fixture; every other screen needs pending.
-    var wantHistory = state.screen === "history";
-    var url = wantHistory ? MOCK_DECIDED_URL : MOCK_PENDING_URL;
-
+  function pendingRequest(seq, url, okText, failText, describe) {
     return getJSON(url)
       .then(function (data) {
         if (!isFreshest(seq)) { return; }
-        setConn("mock", "Mock fixture");
-        if (wantHistory) {
-          show(el.historyError, false);
-          applyHistory(data.reviews);
-        } else {
-          show(el.queueError, false);
-          applyReviews(data.reviews);
-        }
+        setConn(okText.kind, okText.text);
+        state.queueErrored = false;
+        show(el.queueError, false);
+        applyReviews(data.reviews);
       })
       .catch(function (err) {
+        console.error("Riff: pending poll failed", err);
         if (!isFreshest(seq)) { return; }
-        setConn("error", "Mock failed");
-        var msg = "Could not load the mock fixture: " + err.message;
-        if (wantHistory) { historyFailed(msg); } else { queueFailed(msg); }
+        setConn(failText.kind, failText.text);
+        queueFailed(describe(err));
       });
+  }
+
+  function historyRequest(seq, url, describe) {
+    return getJSON(url)
+      .then(function (data) {
+        if (!isFreshest(seq)) { return; }
+        state.historyErrored = false;
+        show(el.historyError, false);
+        applyHistory(data.reviews);
+      })
+      .catch(function (err) {
+        console.error("Riff: history poll failed", err);
+        if (!isFreshest(seq)) { return; }
+        historyFailed(describe(err));
+      });
+  }
+
+  function mockProblem(err) {
+    return "Could not load the mock fixture: " + err.message;
+  }
+
+  function liveProblem(err) {
+    return "Cannot reach the review API (" + err.message +
+      "). Retrying every 2s. Start Chirp on port 9900, or turn on " +
+      "Mock mode from the Connect screen to work offline.";
+  }
+
+  /* The pending queue is polled on every tick regardless of which screen is
+     open — ROADMAP.md requires it, and it is what the demo gate measures.
+     History adds a second request only while it is actually visible. */
+  function loadMock(seq) {
+    var jobs = [pendingRequest(seq, MOCK_PENDING_URL,
+      { kind: "mock", text: "Mock fixture" },
+      { kind: "error", text: "Mock failed" },
+      mockProblem)];
+
+    if (state.screen === "history") {
+      jobs.push(historyRequest(seq, MOCK_DECIDED_URL, mockProblem));
+    }
+    return Promise.all(jobs).then(function () { markApplied(seq); });
   }
 
   function loadLive(seq) {
-    /* History needs terminal packets, which the frozen contract exposes by
-       omitting the status filter. Every other screen polls the pending
-       filter, which is the behavior the lane requires. */
-    var wantHistory = state.screen === "history";
-    var url = wantHistory ? API_REVIEWS : API_REVIEWS + "?status=pending";
+    var jobs = [pendingRequest(seq, API_REVIEWS + "?status=pending",
+      { kind: "live", text: "Live · polling every 2s" },
+      { kind: "error", text: "Disconnected" },
+      liveProblem)];
 
-    return getJSON(url)
-      .then(function (data) {
-        if (!isFreshest(seq)) { return; }
-        setConn("live", "Live · polling every 2s");
-        if (wantHistory) {
-          show(el.historyError, false);
-          applyHistory(data.reviews);
-        } else {
-          show(el.queueError, false);
-          applyReviews(data.reviews);
+    /* Terminal packets are what History wants, and the frozen contract
+       exposes them by omitting the status filter. */
+    if (state.screen === "history") {
+      jobs.push(historyRequest(seq, API_REVIEWS, liveProblem));
+    }
+    return Promise.all(jobs).then(function () { markApplied(seq); });
+  }
+
+  /* One poll in flight at a time, so a slow backend cannot stack requests up
+     behind each other. Always resolves, and always clears the in-flight flag:
+     leaving it set would wedge polling permanently. */
+  function load() {
+    if (state.polling) {
+      state.reloadWhenIdle = true;
+      return Promise.resolve();
+    }
+    state.polling = true;
+    var fetcher = state.mock ? loadMock : loadLive;
+    var seq = ++state.pollSeq;
+
+    return Promise.resolve()
+      .then(function () { return fetcher(seq); })
+      .catch(function (err) { console.error("Riff: poll failed", err); })
+      .then(function () {
+        state.polling = false;
+        if (state.reloadWhenIdle) {
+          state.reloadWhenIdle = false;
+          load();           // bounded: the flag is cleared before re-entry
         }
-      })
-      .catch(function (err) {
-        if (!isFreshest(seq)) { return; }
-        setConn("error", "Disconnected");
-        var msg = "Cannot reach the review API (" + err.message +
-          "). Retrying every 2s. Start Chirp on port 9900, or turn on " +
-          "Mock mode from the Connect screen to work offline.";
-        if (wantHistory) { historyFailed(msg); } else { queueFailed(msg); }
       });
   }
 
-  /* One poll in flight at a time. A slow backend must not let requests stack
-     up behind each other and land out of order. Always resolves. */
-  function load() {
-    if (state.polling) { return Promise.resolve(); }
-    state.polling = true;
-    var fetcher = state.mock ? loadMock : loadLive;
-    return fetcher(++state.pollSeq).then(function () {
+  /* Chained rather than setInterval, so the next poll is scheduled from the
+     end of the previous one instead of firing into a busy client. Both
+     settlement paths reschedule; a poll that somehow rejects must not end
+     polling for the rest of the session. */
+  function pollLoop() {
+    function again() { setTimeout(pollLoop, POLL_MS); }
+    load().then(again, function (err) {
+      console.error("Riff: poll loop error", err);
       state.polling = false;
+      again();
     });
   }
 
-  /* Chained rather than setInterval, so the next poll is scheduled from the
-     end of the previous one instead of firing into a busy client. */
-  function pollLoop() {
-    load().then(function () {
-      setTimeout(pollLoop, POLL_MS);
-    });
+  function syncMockInUrl(on) {
+    try {
+      var url = new URL(window.location.href);
+      if (on) { url.searchParams.set("mock", "1"); }
+      else { url.searchParams.delete("mock"); }
+      history.replaceState(null, "", url.pathname + url.search + url.hash);
+    } catch (e) {
+      /* file:// and older browsers: the toggle still works, it just will not
+         survive a reload. Not worth failing the screen over. */
+    }
   }
 
   function setMock(on) {
@@ -737,12 +870,15 @@
     // Different source of truth, so drop everything derived from the old one.
     state.reviews = [];
     state.history = [];
+    state.localDecided = [];
     state.decided = {};
     state.loadedOnce = false;
     state.historyLoadedOnce = false;
     state.queueSig = null;
     state.historySig = null;
     state.renderedDetailId = null;
+    state.queueErrored = false;
+    state.historyErrored = false;
     setSelection(null);
 
     show(el.queueError, false);
@@ -750,6 +886,9 @@
     show(el.mockBadge, on);
     el.mockToggle.setAttribute("aria-checked", on ? "true" : "false");
     setConn(on ? "mock" : "idle", on ? "Mock fixture" : "Connecting…");
+
+    // Keep the URL honest, so a reload does not silently revert the choice.
+    syncMockInUrl(on);
 
     renderQueue();
     renderDetail();
@@ -802,29 +941,35 @@
     if (state.mock) {
       var target = findReview(id);
       setTimeout(function () {
-        state.decided[id] = true;
-        if (target) {
-          // Keep the mock coherent: a decided packet shows up under History.
-          state.history = [{
-            packet_id: target.packet_id,
-            created_at: target.created_at,
-            status: STATUS_BY_ACTION[action],
-            packet: target.packet,
-            decision: {
-              action: action,
-              reviewer: reviewer,
-              note: note || null,
-              decided_at: new Date().toISOString()
-            }
-          }].concat(state.history);
-          state.historySig = null;
-          renderHistory();
+        try {
+          state.decided[id] = true;
+          if (target) {
+            // Keep the mock coherent: a decided packet shows up under History.
+            state.localDecided = [{
+              packet_id: target.packet_id,
+              created_at: target.created_at,
+              status: STATUS_BY_ACTION[action],
+              packet: target.packet,
+              decision: {
+                action: action,
+                reviewer: reviewer,
+                note: note || null,
+                decided_at: new Date().toISOString()
+              }
+            }].concat(state.localDecided);
+            applyHistory(state.history);
+          }
+          setSelection(null);
+          toast("success", "Recorded " + label(action) + " (mock — nothing was sent).");
+          applyReviews(state.reviews);
+        } catch (err) {
+          console.error("Riff: mock decision failed", err);
+          failForm("Recording that decision failed locally: " + err.message);
+        } finally {
+          // Never strand the panel disabled behind a throw.
+          state.submitting = false;
+          setButtonsDisabled(false);
         }
-        setSelection(null);
-        state.submitting = false;
-        setButtonsDisabled(false);
-        toast("success", "Recorded " + label(action) + " (mock — nothing was sent).");
-        applyReviews(state.reviews);
       }, 220);
       return;
     }

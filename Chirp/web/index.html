@@ -37,7 +37,13 @@
   <!-- ============ ABOUT ============ -->
   <section id="screenAbout" class="screen screen-about" aria-labelledby="aboutHeading" hidden>
     <h2 id="aboutHeading" class="sr-only">About Riff</h2>
-    <iframe id="aboutFrame" class="about-frame" title="Riff workflow overview" hidden></iframe>
+    <!-- allow-same-origin is required: the overview unpacks itself from an
+         embedded bundle and needs a real origin to do it. Paired with
+         allow-scripts this is not a true origin boundary, but it still denies
+         top-level navigation, popups, form submission, and downloads, none of
+         which a workflow overview has any business doing. -->
+    <iframe id="aboutFrame" class="about-frame" title="Riff workflow overview"
+            sandbox="allow-scripts allow-same-origin" hidden></iframe>
     <div id="aboutMissing" class="about-missing" hidden>
       <div class="card card-narrow">
         <h3>No workflow overview installed</h3>
