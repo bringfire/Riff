@@ -698,18 +698,35 @@
       if (timer) { clearTimeout(timer); timer = null; }
     }
 
+    /* An abort surfaces either as the fetch rejecting or as the body read
+       rejecting, depending on when it lands, so both paths map it. */
+    function mapError(err) {
+      if (err && err.name === "AbortError") {
+        return new Error("request timed out after " + REQUEST_TIMEOUT_MS + "ms");
+      }
+      return err;
+    }
+
     return fetch(url, opts).then(
       function (res) {
-        settled();
-        if (!res.ok) { throw new Error("API returned " + res.status); }
-        return res.json();
+        if (!res.ok) {
+          settled();                    // no body will be read
+          throw new Error("API returned " + res.status);
+        }
+        /* The timer must outlive the header response. fetch resolves when
+           headers arrive, NOT when the body finishes, so clearing it here
+           would leave res.json() reading an unbounded body with no timeout
+           at all. A server that returns headers and then stalls mid-body
+           would hang this promise forever, and with it the poll loop —
+           precisely the failure this timeout exists to prevent. */
+        return res.json().then(
+          function (data) { settled(); return data; },
+          function (err) { settled(); throw mapError(err); }
+        );
       },
       function (err) {
         settled();
-        if (err && err.name === "AbortError") {
-          throw new Error("request timed out after " + REQUEST_TIMEOUT_MS + "ms");
-        }
-        throw err;
+        throw mapError(err);
       }
     );
   }
