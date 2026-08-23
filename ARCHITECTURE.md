@@ -23,7 +23,7 @@ flowchart LR
     AGENT[External main agent] -->|POST /api/riff/snapshots| API[Riff snapshot API in Chirp FastAPI]
     API --> PRESENTER[Riff presenter]
     PRESENTER --> STORE[(Process-local completed snapshot store)]
-    UI[Trusted light-mode presenter] -->|GET snapshot + matrix| API
+    UI[Trusted presenter] -->|GET snapshot + matrix| API
     UI -->|POST /reviews/{packet_id}/decision| REV[Review API]
     REV <--> RSTORE[(Locked in-memory review store)]
     API -->|Review Matrix| AGENT
@@ -80,7 +80,7 @@ The static presenter is directly addressable at:
 /riff/presenter.html?snapshot_id={snapshot_id}
 ```
 
-It uses root-relative same-origin requests, fixed light-mode styling, safe DOM APIs, current matrix state after reload, and verbatim matrix download. `/riff/?mock=1` remains the older queue-workbench fallback; it is not the new snapshot architecture.
+It uses root-relative same-origin requests, fixed checked-in styling, safe DOM APIs, current matrix state after reload, and verbatim matrix download. `/riff/?mock=1` remains the older queue-workbench fallback; it is not the new snapshot architecture.
 
 ## State and concurrency
 
