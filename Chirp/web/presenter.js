@@ -23,6 +23,8 @@
     annotationById: Object.create(null),
     reviewByNodeId: Object.create(null),
     submitting: Object.create(null),
+    reviewRevision: 0,
+    refreshSequence: 0,
     historyFilter: "all"
   };
 
@@ -372,6 +374,39 @@
     state.nodeById = presentationData.nodeById;
     state.annotationById = presentationData.annotationById;
     state.reviewByNodeId = reviewByNodeId;
+    state.reviewRevision = 0;
+    state.refreshSequence = 0;
+  }
+
+  function reviewsComplete() {
+    if (!state.presentation) { return false; }
+    return state.presentation.snapshot.nodes.every(function (node) {
+      var review = state.reviewByNodeId[node.node_id];
+      return review && review.status !== "pending";
+    });
+  }
+
+  function applyReviewDecision(nodeId, review) {
+    state.reviewRevision += 1;
+    state.reviewByNodeId[nodeId] = review;
+  }
+
+  function beginMatrixRefresh() {
+    state.refreshSequence += 1;
+    return {
+      reviewRevision: state.reviewRevision,
+      sequence: state.refreshSequence
+    };
+  }
+
+  function applyMatrixRefresh(token, matrix, reviews) {
+    if (token.reviewRevision !== state.reviewRevision ||
+        token.sequence !== state.refreshSequence) {
+      return false;
+    }
+    state.matrix = matrix;
+    state.reviewByNodeId = reviews;
+    return true;
   }
 
   function clearError() {
@@ -578,14 +613,15 @@
 
   function renderSnapshotMeta() {
     var snapshot = state.presentation.snapshot;
+    var complete = reviewsComplete();
     document.getElementById("snapshotId").textContent = snapshot.snapshot_id;
     document.getElementById("canvasId").textContent = snapshot.canvas_id;
     document.getElementById("runId").textContent = snapshot.run_id;
     document.getElementById("capturedAt").textContent = snapshot.captured_at;
-    document.getElementById("reviewComplete").textContent = state.matrix.review_complete ?
+    document.getElementById("reviewComplete").textContent = complete ?
       "All node reviews are terminal" : "Review in progress";
     document.getElementById("reviewCompletionDot").className =
-      "status-dot " + (state.matrix.review_complete ? "status-accepted" : "status-pending");
+      "status-dot " + (complete ? "status-accepted" : "status-pending");
     document.getElementById("connectionSnapshot").textContent = snapshot.snapshot_id;
     document.getElementById("connectionLabel").textContent = "Live";
     document.getElementById("connectionHint").textContent =
@@ -779,7 +815,7 @@
       return requireJson(response, "Decision API");
     }).then(function (updated) {
       var validated = validateDecisionResponse(updated, review.packet_id, action);
-      state.reviewByNodeId[nodeId] = validated;
+      applyReviewDecision(nodeId, validated);
       renderPresentation();
     }).catch(function (error) {
       showError("Could not record the decision: " + error.message);
@@ -793,6 +829,7 @@
     if (!state.snapshotId || !state.presentation) { return Promise.resolve(); }
     clearError();
     var button = document.getElementById("refreshMatrix");
+    var refreshToken = beginMatrixRefresh();
     button.disabled = true;
     return fetch(matrixUrl(), {
       headers: { "Accept": "application/json" },
@@ -802,9 +839,9 @@
     }).then(function (matrix) {
       var presentationData = validatePresentationEnvelope(state.presentation);
       var reviews = validateMatrix(matrix, presentationData);
-      state.matrix = matrix;
-      state.reviewByNodeId = reviews;
-      renderPresentation();
+      if (applyMatrixRefresh(refreshToken, matrix, reviews)) {
+        renderPresentation();
+      }
     }).catch(function (error) {
       showError("Could not refresh the Review Matrix: " + error.message);
     }).then(function () {

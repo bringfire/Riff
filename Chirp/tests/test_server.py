@@ -1,6 +1,8 @@
 """Tests for the FastAPI server — health check and request/response shape."""
 
 from pathlib import Path
+import shutil
+import subprocess
 
 import pytest
 from unittest.mock import patch
@@ -261,7 +263,7 @@ def test_presenter_javascript_uses_trusted_dispatch_and_safe_dom_contract():
 def test_presenter_javascript_validates_decision_before_local_update():
     source = (WEB_DIR / "presenter.js").read_text(encoding="utf-8")
     validation = "validateDecisionResponse(updated, review.packet_id, action)"
-    update = "state.reviewByNodeId[nodeId] = validated"
+    update = "applyReviewDecision(nodeId, validated)"
 
     assert validation in source
     assert 'accept: "accepted"' in source
@@ -269,6 +271,19 @@ def test_presenter_javascript_validates_decision_before_local_update():
     assert 'reject: "rejected"' in source
     assert update in source
     assert source.index(validation) < source.index(update)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
+def test_presenter_review_state_handles_last_decision_and_request_races():
+    result = subprocess.run(
+        ["node", str(Path(__file__).with_name("test_presenter_state.js"))],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "presenter state tests passed" in result.stdout
 
 
 def test_presenter_rejects_invalid_snapshot_ids_without_normalizing_identity():
@@ -320,10 +335,15 @@ def test_presenter_preserves_all_git_tejal_views_and_about_content():
         assert f'id="{element_id}"' in html
 
     assert 'src="uploads/RIFF-Workflow-share.html"' in html
+    assert 'sandbox="allow-scripts"' in html
     about = client.get("/riff/uploads/RIFF-Workflow-share.html")
     assert about.status_code == 200
     assert "AEC Tech Hackathon" in about.text
     assert "The broker compiles and publishes" in about.text
+    assert "Review Matrix" in about.text
+    assert "external LLM agent" in about.text
+    assert "the round runs again" not in about.text
+    assert "loop runs until every change is approved" not in about.text
 
 
 def test_riff_snapshot_routes_and_existing_routes_are_registered():
