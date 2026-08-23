@@ -228,8 +228,8 @@ def test_presenter_frontend_contract_is_ready_for_snapshot_backend():
     ):
         assert f'id="{element_id}"' in html
 
-    assert 'src="presenter.js"' in html
-    assert 'href="presenter.css"' in html
+    assert 'src="presenter.js?v=nav-tabs-1"' in html
+    assert 'href="presenter.css?v=nav-tabs-1"' in html
     assert '"/api/riff/snapshots/"' in javascript
     assert '"/reviews/"' in javascript
     assert "new URLSearchParams(window.location.search)" in javascript
@@ -269,6 +269,22 @@ def test_presenter_javascript_validates_decision_before_local_update():
     assert 'reject: "rejected"' in source
     assert update in source
     assert source.index(validation) < source.index(update)
+
+
+def test_presenter_navigation_stays_inside_the_trusted_shell():
+    response = client.get(
+        "/riff/presenter.html?snapshot_id=demo-snapshot-001"
+    )
+    assert response.status_code == 200
+
+    html = response.text
+    assert 'href="./"' not in html
+    assert 'id="showAbout"' in html
+    assert 'id="showWorkbench"' in html
+    assert 'id="aboutPanel"' in html
+    assert 'id="workbenchPanel"' in html
+    assert 'href="presenter.css?v=nav-tabs-1"' in html
+    assert 'src="presenter.js?v=nav-tabs-1"' in html
 
 
 def test_riff_snapshot_routes_and_existing_routes_are_registered():

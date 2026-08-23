@@ -123,6 +123,11 @@ h1 span {
   flex-wrap: wrap;
 }
 
+.view-tabs {
+  display: flex;
+  gap: 8px;
+}
+
 .pill {
   min-height: 38px;
   padding: 9px 14px;
@@ -285,6 +290,10 @@ pre {
   gap: 20px;
   max-width: 960px;
   margin: 0 auto;
+}
+
+#aboutPanel {
+  padding-top: 32px;
 }
 
 .state-message,

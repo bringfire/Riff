@@ -379,6 +379,19 @@
     error.hidden = false;
   }
 
+  function showView(viewName) {
+    var aboutIsActive = viewName === "about";
+    var aboutButton = document.getElementById("showAbout");
+    var workbenchButton = document.getElementById("showWorkbench");
+
+    document.getElementById("aboutPanel").hidden = !aboutIsActive;
+    document.getElementById("workbenchPanel").hidden = aboutIsActive;
+    aboutButton.classList.toggle("pill-active", aboutIsActive);
+    workbenchButton.classList.toggle("pill-active", !aboutIsActive);
+    aboutButton.setAttribute("aria-selected", String(aboutIsActive));
+    workbenchButton.setAttribute("aria-selected", String(!aboutIsActive));
+  }
+
   function oneNode(section) {
     if (section.node_ids.length !== 1 || !state.nodeById[section.node_ids[0]]) {
       throw new Error("Template requires one known node.");
@@ -777,5 +790,11 @@
 
   document.getElementById("refreshMatrix").addEventListener("click", refreshMatrix);
   document.getElementById("downloadMatrix").addEventListener("click", downloadMatrix);
+  document.getElementById("showAbout").addEventListener("click", function () {
+    showView("about");
+  });
+  document.getElementById("showWorkbench").addEventListener("click", function () {
+    showView("workbench");
+  });
   document.addEventListener("DOMContentLoaded", loadPresentation);
 }());

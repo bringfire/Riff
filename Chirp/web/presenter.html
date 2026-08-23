@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Riff reasoning review</title>
-  <link rel="stylesheet" href="presenter.css">
+  <link rel="stylesheet" href="presenter.css?v=nav-tabs-1">
 </head>
 <body>
   <!-- Visual baseline: GitTejal commit 9169891. -->
@@ -15,8 +15,24 @@
         <h1>RIFF <span>as an extension of CHIRP</span></h1>
       </div>
       <nav class="top-actions" aria-label="Riff navigation and actions">
-        <a class="pill" href="./">About</a>
-        <span class="pill pill-active" aria-current="page">Workbench</span>
+        <div class="view-tabs" role="tablist" aria-label="Riff views">
+          <button
+            id="showAbout"
+            class="pill"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="aboutPanel"
+          >About</button>
+          <button
+            id="showWorkbench"
+            class="pill pill-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="workbenchPanel"
+          >Workbench</button>
+        </div>
         <button id="refreshMatrix" class="pill" type="button">Refresh reviews</button>
         <button id="downloadMatrix" class="pill" type="button">Download matrix</button>
       </nav>
@@ -32,9 +48,34 @@
       </aside>
 
       <section class="detail-pane" aria-label="Snapshot presentation">
-        <p id="loadingState" class="state-message" role="status">Loading snapshot presentation…</p>
-        <p id="errorState" class="error-message" role="alert" hidden></p>
-        <div id="presentation" class="presentation" hidden></div>
+        <div
+          id="aboutPanel"
+          class="presentation"
+          role="tabpanel"
+          aria-labelledby="showAbout"
+          hidden
+        >
+          <section class="review-section emphasis-high">
+            <p class="source-label">About Riff</p>
+            <h2>Reasoning stays inspectable through human review.</h2>
+            <p>Riff presents immutable CHIRP reasoning without rewriting it, then keeps Riff assessments and human decisions visibly separate.</p>
+          </section>
+          <section class="review-section">
+            <h2>Trusted by construction</h2>
+            <p>The presenter uses six fixed templates, renders external content as plain text, and accepts only explicit human review actions.</p>
+            <p>Return to Workbench to inspect the current snapshot, record decisions, refresh review state, or download the authoritative Review Matrix.</p>
+          </section>
+        </div>
+
+        <div
+          id="workbenchPanel"
+          role="tabpanel"
+          aria-labelledby="showWorkbench"
+        >
+          <p id="loadingState" class="state-message" role="status">Loading snapshot presentation…</p>
+          <p id="errorState" class="error-message" role="alert" hidden></p>
+          <div id="presentation" class="presentation" hidden></div>
+        </div>
       </section>
 
       <aside class="tools-pane" aria-labelledby="snapshotHeading">
@@ -66,6 +107,6 @@
     </main>
   </div>
 
-  <script src="presenter.js"></script>
+  <script src="presenter.js?v=nav-tabs-1"></script>
 </body>
 </html>
