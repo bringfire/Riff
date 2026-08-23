@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: oklch(0.17 0.012 255); color: oklch(0.93 0.008 90); font-family: 'Space Grotesk', Helvetica, sans-serif; }
+  a { color: oklch(0.75 0.13 205); text-decoration: none; }
+  a:hover { color: oklch(0.85 0.10 205); }
+  button { font-family: inherit; color: inherit; }
+  textarea, input { font-family: inherit; }
+  ::placeholder { color: oklch(0.55 0.012 255); }
+  @keyframes softpulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: oklch(0.32 0.012 255); border-radius: 8px; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column; font-family:'Space Grotesk',Helvetica,sans-serif">
+
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; border-bottom:1px solid oklch(0.30 0.012 255); padding:24px 32px 16px">
+    <div style="display:flex; flex-direction:column; gap:6px">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:oklch(0.68 0.02 255)">Human-in-the-loop review</div>
+      <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+        <h1 style="margin:0; font-size:28px; font-weight:600; letter-spacing:-0.02em">RIFF <span style="color:oklch(0.55 0.02 255); font-weight:400; font-size:16px">as an extension of CHIRP</span></h1>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+        <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ isAbout }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; min-height:0; overflow-y:auto">
+      <iframe ref="{{ aboutIframeRef }}" onLoad="{{ onAboutLoad }}" src="uploads/RIFF-Workflow-share.html" title="Riff workflow overview" style="{{ aboutIframeStyle }}"></iframe>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isConnect }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px">
+      <div style="width:100%; max-width:520px; border:1px solid oklch(0.29 0.012 255); background:oklch(0.20 0.012 255); border-radius:16px; padding:32px; display:flex; flex-direction:column; gap:22px">
+        <div style="display:flex; flex-direction:column; gap:4px">
+          <div style="font-size:19px; font-weight:600">Connect to Chirp</div>
+          <div style="font-size:13px; line-height:1.5; color:oklch(0.68 0.012 255)">Riff talks to the Chirp review API running alongside Grasshopper.</div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.62 0.02 255)">Service URL</div>
+          <div style="display:flex; align-items:center; gap:10px; border:1px solid oklch(0.32 0.012 255); background:oklch(0.16 0.012 255); border-radius:10px; padding:12px 14px">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:13.5px; color:oklch(0.85 0.01 255)">http://127.0.0.1:9900</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid oklch(0.29 0.012 255); border-radius:10px; padding:12px 14px">
+          <div style="display:flex; flex-direction:column; gap:2px">
+            <div style="font-size:13.5px; font-weight:500">Connection</div>
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">{{ connectionHint }}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <div style="{{ connectionDotStyle }}"></div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:{{ connectionColor }}">{{ connectionLabel }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; border:1px solid oklch(0.29 0.012 255); border-radius:10px; padding:12px 14px">
+          <div style="display:flex; flex-direction:column; gap:2px">
+            <div style="font-size:13.5px; font-weight:500">Mock mode</div>
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">Demo data, no live backend needed</div>
+          </div>
+          <button onClick="{{ toggleMock }}" style="{{ mockToggleStyle }}">
+            <div style="{{ mockKnobStyle }}"></div>
+          </button>
+        </div>
+
+        <button onClick="{{ enterWorkbench }}" style="padding:13px 18px; border-radius:10px; border:none; background:oklch(0.75 0.13 205); color:oklch(0.14 0.01 255); font-size:14px; font-weight:600; cursor:pointer">Enter workbench →</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isWorkbench }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; display:flex; gap:0; min-height:0">
+
+      <div style="width:320px; flex:none; border-right:1px solid oklch(0.29 0.012 255); display:flex; flex-direction:column; min-height:0">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 18px 12px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Pending queue</div>
+          <div style="display:flex; align-items:center; gap:6px">
+            <div style="width:6px; height:6px; border-radius:50%; background:oklch(0.75 0.13 205); animation:softpulse 2s ease-in-out infinite"></div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ pendingCount }}</div>
+          </div>
+        </div>
+
+        <div style="flex:1; overflow-y:auto; padding:0 12px 16px; display:flex; flex-direction:column; gap:8px">
+          <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ pendingPackets }}" as="p" hint-placeholder-count="3">
+              <button onClick="{{ p.onSelect }}" style="{{ p.cardStyle }}">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.60 0.012 255)">{{ p.packet_id }}</div>
+                  <div style="{{ p.dotStyle }}"></div>
+                </div>
+                <div style="font-size:14px; font-weight:600; text-align:left; line-height:1.3">{{ p.role }}</div>
+                <div style="font-size:12px; color:oklch(0.62 0.012 255); text-align:left">{{ p.contributor }} · {{ p.timeLabel }}</div>
+              </button>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ showEmptyQueue }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:28px 14px; text-align:center; display:flex; flex-direction:column; gap:8px; color:oklch(0.55 0.012 255)">
+              <div style="font-size:26px">—</div>
+              <div style="font-size:13px; line-height:1.5">Queue is empty.<br>Waiting for Grasshopper submissions.</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1; overflow-y:auto; padding:24px 28px; display:flex; flex-direction:column; gap:20px; min-width:0">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap">
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:{{ selected.accent }}">{{ selected.role }}</div>
+              <div style="font-size:22px; font-weight:600; letter-spacing:-0.01em">{{ selected.proposal }}</div>
+            </div>
+            <div style="{{ selected.statusPillStyle }}">{{ selected.statusLabel }}</div>
+          </div>
+
+          <div style="display:flex; gap:18px; flex-wrap:wrap; border:1px solid oklch(0.29 0.012 255); border-radius:12px; padding:14px 18px; background:oklch(0.195 0.012 255)">
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Contributor</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.contributor }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Component</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.component }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Run</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.run }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:oklch(0.58 0.012 255)">Parent packet</div>
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:13px">{{ selected.parentLabel }}</div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Inputs</div>
+            <sc-for list="{{ selected.inputs }}" as="i" hint-placeholder-count="3">
+              <div style="font-size:13.5px; line-height:1.6; color:oklch(0.82 0.012 255); padding-left:14px; border-left:2px solid oklch(0.30 0.012 255)">{{ i.text }}</div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Assumptions</div>
+            <sc-for list="{{ selected.assumptions }}" as="a" hint-placeholder-count="2">
+              <div style="font-size:13.5px; line-height:1.6; color:oklch(0.82 0.012 255); padding-left:14px; border-left:2px solid oklch(0.30 0.012 255)">{{ a.text }}</div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Parameters</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+              <sc-for list="{{ selected.parameters }}" as="pr" hint-placeholder-count="3">
+                <div style="display:flex; align-items:baseline; gap:6px; border:1px solid oklch(0.30 0.012 255); border-radius:8px; padding:6px 12px; background:oklch(0.16 0.012 255)">
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:oklch(0.58 0.012 255)">{{ pr.key }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:oklch(0.90 0.01 255)">{{ pr.value }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Rationale</div>
+            <div style="font-size:14px; line-height:1.65; color:oklch(0.85 0.01 255); text-wrap:pretty">{{ selected.rationale }}</div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.72 0.14 60)">Uncertainties</div>
+            <sc-for list="{{ selected.uncertainties }}" as="u" hint-placeholder-count="2">
+              <div style="font-size:13.5px; line-height:1.6; color:oklch(0.82 0.06 60); padding-left:14px; border-left:2px solid oklch(0.45 0.10 60)">{{ u.text }}</div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ selected.hasDecision }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid oklch(0.29 0.012 255); border-radius:12px; padding:16px 18px; background:oklch(0.195 0.012 255); display:flex; flex-direction:column; gap:6px">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:{{ selected.accent }}">Decision · {{ selected.decisionAction }}</div>
+              <div style="font-size:13.5px; color:oklch(0.82 0.012 255)">{{ selected.decisionReviewer }} — {{ selected.decisionNote }}</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="width:320px; flex:none; border-left:1px solid oklch(0.29 0.012 255); padding:20px 20px 24px; display:flex; flex-direction:column; gap:16px">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Reviewer decision</div>
+
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">Reviewer name</div>
+            <input value="{{ reviewerName }}" onChange="{{ onReviewerChange }}" placeholder="e.g. Priya" style="border:1px solid oklch(0.32 0.012 255); background:oklch(0.16 0.012 255); border-radius:8px; padding:10px 12px; font-size:13.5px; color:oklch(0.92 0.01 255); outline:none" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <div style="font-size:12px; color:oklch(0.62 0.012 255)">Note {{ noteHint }}</div>
+            <textarea value="{{ noteText }}" onChange="{{ onNoteChange }}" placeholder="Required for correction or rejection" rows="4" style="border:1px solid oklch(0.32 0.012 255); background:oklch(0.16 0.012 255); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; color:oklch(0.92 0.01 255); outline:none; resize:vertical; font-family:inherit"></textarea>
+          </div>
+
+          <sc-if value="{{ formError }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px; color:oklch(0.70 0.18 25); background:oklch(0.22 0.05 25); border:1px solid oklch(0.35 0.10 25); border-radius:8px; padding:8px 10px">{{ formError }}</div>
+          </sc-if>
+
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px">
+            <button onClick="{{ acceptDecision }}" style="padding:12px 14px; border-radius:8px; border:1px solid oklch(0.45 0.14 145); background:oklch(0.24 0.06 145); color:oklch(0.90 0.13 145); font-size:13.5px; font-weight:600; cursor:pointer">Accept</button>
+            <button onClick="{{ correctDecision }}" style="padding:12px 14px; border-radius:8px; border:1px solid oklch(0.45 0.12 80); background:oklch(0.24 0.05 80); color:oklch(0.88 0.13 80); font-size:13.5px; font-weight:600; cursor:pointer">Request correction</button>
+            <button onClick="{{ rejectDecision }}" style="padding:12px 14px; border-radius:8px; border:1px solid oklch(0.45 0.12 25); background:oklch(0.24 0.05 25); color:oklch(0.86 0.14 25); font-size:13.5px; font-weight:600; cursor:pointer">Reject</button>
+          </div>
+
+          <div style="font-size:11.5px; line-height:1.5; color:oklch(0.5 0.012 255); margin-top:4px">Decisions are terminal — each packet may only be decided once.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showEmptyDetail }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; color:oklch(0.5 0.012 255); font-size:14px">Select a packet from the queue to review it.</div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; padding:24px 32px; display:flex; flex-direction:column; gap:18px; min-height:0">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:oklch(0.66 0.02 255)">Decided packets</div>
+        <div style="display:flex; gap:8px">
+          <sc-for list="{{ historyFilters }}" as="f" hint-placeholder-count="4">
+            <button onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px">
+        <sc-if value="{{ hasHistory }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ historyPackets }}" as="h" hint-placeholder-count="4">
+            <div style="border:1px solid oklch(0.29 0.012 255); background:oklch(0.195 0.012 255); border-radius:12px; padding:16px 18px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap">
+              <div style="display:flex; flex-direction:column; gap:6px; min-width:0; flex:1">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.58 0.012 255)">{{ h.packet_id }}</div>
+                  <div style="{{ h.pillStyle }}">{{ h.statusLabel }}</div>
+                </div>
+                <div style="font-size:15px; font-weight:600">{{ h.proposal }}</div>
+                <div style="font-size:12.5px; color:oklch(0.62 0.012 255)">{{ h.contributor }} · reviewed by {{ h.decisionReviewer }} · {{ h.timeLabel }}</div>
+                <sc-if value="{{ h.hasNote }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:13px; color:oklch(0.78 0.012 255); margin-top:2px">"{{ h.decisionNote }}"</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ showEmptyHistory }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:60px 0; text-align:center; color:oklch(0.5 0.012 255); font-size:13.5px">No decided packets yet for this filter.</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;connect&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;options&quot;: [&quot;connect&quot;, &quot;workbench&quot;, &quot;history&quot;], &quot;section&quot;: &quot;Behavior&quot;}, &quot;simulateLiveQueue&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Behavior&quot;}}">
+const STATUS_META = {
+  pending: { label: 'Pending', hue: 205, chroma: 0.13 },
+  accepted: { label: 'Accepted', hue: 145, chroma: 0.15 },
+  correction_requested: { label: 'Correction requested', hue: 80, chroma: 0.14 },
+  rejected: { label: 'Rejected', hue: 25, chroma: 0.18 },
+};
+
+function accentColor(status) {
+  const m = STATUS_META[status] || STATUS_META.pending;
+  return `oklch(0.75 ${m.chroma} ${m.hue})`;
+}
+
+function pillStyle(status) {
+  const m = STATUS_META[status] || STATUS_META.pending;
+  return `font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:999px; border:1px solid oklch(0.42 ${m.chroma} ${m.hue}); background:oklch(0.22 ${m.chroma * 0.5} ${m.hue}); color:oklch(0.85 ${m.chroma} ${m.hue}); white-space:nowrap`;
+}
+
+function timeLabel(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function seedPackets() {
+  return [
+    {
+      packet_id: 'packet-0143', created_at: '2026-08-22T22:04:00Z', status: 'pending',
+      role: 'Roof geometry', contributor: 'chirp-agent-03', component: 'Roof Pitch Optimizer',
+      run: 'run-014', parent_packet_id: null,
+      proposal: 'Increase roof pitch to 42° to shed snow load while preserving eave clearance.',
+      inputs: ['Site: alpine ridge, 2400m elevation', 'Design snow load: 4.2 kN/m²', 'Min eave clearance: 2.1m'],
+      assumptions: ['Roof material unchanged (standing-seam metal)', 'Ridge beam load path unaffected'],
+      parameters: { pitch_deg: 42, overhang_m: 2.3, ridge_height_m: 6.8 },
+      rationale: 'A 42° pitch keeps snow depth below the structural threshold recorded in the site brief, and the added overhang still clears the entry path at the steepest local grade.',
+      uncertainties: ['Wind uplift at higher pitch not modeled', 'Local snow code max pitch unconfirmed'],
+      decision: null,
+    },
+    {
+      packet_id: 'packet-0142', created_at: '2026-08-22T21:52:00Z', status: 'pending',
+      role: 'Facade fenestration', contributor: 'chirp-agent-01', component: 'Window Panelizer',
+      run: 'run-014', parent_packet_id: 'packet-0139',
+      proposal: 'Shift south facade openings to a 60/40 split favoring the living level for daylight balance.',
+      inputs: ['Daylight autonomy target: 55%', 'South facade area: 84 m²', 'Existing mullion grid: 900mm'],
+      assumptions: ['Glazing spec fixed at triple-pane, U-0.8', 'Structural grid unchanged'],
+      parameters: { split_ratio: '60/40', mullion_mm: 900, glazing_pct: 38 },
+      rationale: 'Weighting glazing toward the living level raises simulated daylight autonomy without exceeding the heat-loss budget set upstream.',
+      uncertainties: ['Glare at low winter sun angle not checked'],
+      decision: null,
+    },
+    {
+      packet_id: 'packet-0138', created_at: '2026-08-22T21:10:00Z', status: 'accepted',
+      role: 'Structural bracing', contributor: 'chirp-agent-02', component: 'Truss Reasoner',
+      run: 'run-013', parent_packet_id: null,
+      proposal: 'Add diagonal bracing to the north gable to resolve lateral drift under wind load.',
+      inputs: ['Wind load case: 1.2 kPa lateral', 'Gable span: 9.4m'],
+      assumptions: ['Existing timber grade unchanged'],
+      parameters: { brace_count: 2, angle_deg: 38 },
+      rationale: 'Two diagonal braces at 38° bring lateral drift within the 1/240 span limit at the modeled wind case.',
+      uncertainties: [],
+      decision: { action: 'accept', reviewer: 'Priya', note: '', decided_at: '2026-08-22T21:18:00Z' },
+    },
+    {
+      packet_id: 'packet-0136', created_at: '2026-08-22T20:44:00Z', status: 'correction_requested',
+      role: 'Entry sequence', contributor: 'chirp-agent-03', component: 'Circulation Planner',
+      run: 'run-012', parent_packet_id: null,
+      proposal: 'Route the entry mudroom directly off the ski storage to shorten the wet-to-dry path.',
+      inputs: ['Ski storage capacity: 6 pairs', 'Mudroom footprint: 5.2 m²'],
+      assumptions: ['Storage location fixed at north wall'],
+      parameters: { mudroom_m2: 5.2 },
+      rationale: 'A direct route removes one turn from the wet-to-dry path measured in the circulation trace.',
+      uncertainties: ['Door swing clash with storage bench not checked'],
+      decision: { action: 'request_correction', reviewer: 'Marcus', note: 'Check the door swing against the storage bench before resubmitting — looks like it clashes.', decided_at: '2026-08-22T20:51:00Z' },
+    },
+    {
+      packet_id: 'packet-0131', created_at: '2026-08-22T20:02:00Z', status: 'rejected',
+      role: 'Roof geometry', contributor: 'chirp-agent-03', component: 'Roof Pitch Optimizer',
+      run: 'run-011', parent_packet_id: null,
+      proposal: 'Set roof pitch to 55° for maximum snow shedding.',
+      inputs: ['Design snow load: 4.2 kN/m²'],
+      assumptions: ['No overhang constraint applied'],
+      parameters: { pitch_deg: 55 },
+      rationale: 'Maximizing pitch minimizes retained snow depth in isolation from other constraints.',
+      uncertainties: ['Eave overhang clearance not checked against this pitch'],
+      decision: { action: 'reject', reviewer: 'Priya', note: 'Ignores the eave clearance constraint entirely — resend with that input included.', decided_at: '2026-08-22T20:09:00Z' },
+    },
+  ];
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: this.props.startScreen || 'connect',
+    mockMode: true,
+    packets: seedPackets(),
+    selectedId: null,
+    reviewerName: '',
+    noteText: '',
+    formError: '',
+    historyFilter: 'all',
+    simTick: 0,
+    aboutHeight: null,
+  };
+
+  aboutIframeRef = (el) => { this._aboutIframe = el; };
+
+  onAboutLoad = () => {
+    if (this._aboutPoll) clearInterval(this._aboutPoll);
+    let lastH = 0, stableCount = 0;
+    this._aboutPoll = setInterval(() => {
+      try {
+        const doc = this._aboutIframe.contentWindow.document;
+        const h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+        if (h === lastH) {
+          stableCount++;
+          if (stableCount >= 2) { clearInterval(this._aboutPoll); this._aboutPoll = null; }
+        } else {
+          stableCount = 0;
+          lastH = h;
+        }
+        if (h > 0) this.setState({ aboutHeight: h });
+      } catch (e) {}
+    }, 250);
+  };
+
+  componentDidMount() {
+    if (this.props.simulateLiveQueue) {
+      this._timer = setInterval(() => this.maybeInject(), 6000);
+    }
+  }
+
+  componentWillUnmount() {
+    if (this._timer) clearInterval(this._timer);
+    if (this._aboutPoll) clearInterval(this._aboutPoll);
+  }
+
+  maybeInject() {
+    const extra = [
+      { role: 'Site drainage', component: 'Grading Solver', proposal: 'Regrade the north swale 1.5% to route meltwater away from the foundation.', parameters: { slope_pct: 1.5 } },
+      { role: 'Material palette', component: 'Facade Material Matcher', proposal: 'Swap the lower facade cladding to weathered larch for contrast with the upper standing-seam.', parameters: { material: 'larch' } },
+    ];
+    const pick = extra[this.state.simTick % extra.length];
+    const id = 'packet-0' + (150 + this.state.simTick);
+    const packet = {
+      packet_id: id, created_at: new Date().toISOString(), status: 'pending',
+      role: pick.role, contributor: 'chirp-agent-0' + (1 + (this.state.simTick % 3)), component: pick.component,
+      run: 'run-01' + (5 + this.state.simTick), parent_packet_id: null,
+      proposal: pick.proposal,
+      inputs: ['Live simulated submission from Grasshopper'],
+      assumptions: ['Demo-injected packet for polling illustration'],
+      parameters: pick.parameters,
+      rationale: 'Simulated packet illustrating the two-second polling behavior described in the architecture.',
+      uncertainties: [],
+      decision: null,
+    };
+    this.setState(s => ({ packets: [packet, ...s.packets], simTick: s.simTick + 1 }));
+  }
+
+  setScreen(screen) { this.setState({ screen }); }
+  select(id) { this.setState({ selectedId: id, noteText: '', formError: '' }); }
+
+  decide(action) {
+    const p = this.state.packets.find(x => x.packet_id === this.state.selectedId);
+    if (!p) return;
+    if (!this.state.reviewerName.trim()) { this.setState({ formError: 'Reviewer name is required.' }); return; }
+    if (action !== 'accept' && !this.state.noteText.trim()) { this.setState({ formError: 'A note is required for correction or rejection.' }); return; }
+    const statusMap = { accept: 'accepted', request_correction: 'correction_requested', reject: 'rejected' };
+    this.setState(s => ({
+      formError: '',
+      noteText: '',
+      packets: s.packets.map(x => x.packet_id === p.packet_id
+        ? { ...x, status: statusMap[action], decision: { action, reviewer: s.reviewerName.trim(), note: s.noteText.trim(), decided_at: new Date().toISOString() } }
+        : x),
+    }));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tabDefs = [
+      { key: 'about', label: 'About' },
+      { key: 'connect', label: 'Connect' },
+      { key: 'workbench', label: 'Workbench' },
+      { key: 'history', label: 'History' },
+    ];
+    const tabs = tabDefs.map(t => ({
+      label: t.label,
+      onClick: () => this.setScreen(t.key),
+      style: `padding:10px 16px; border-radius:999px; font-size:13px; font-weight:500; letter-spacing:.01em; cursor:pointer; border:1px solid ${s.screen === t.key ? 'oklch(0.55 0.13 205)' : 'oklch(0.30 0.012 255)'}; background:${s.screen === t.key ? 'oklch(0.28 0.07 205)' : 'transparent'}; color:${s.screen === t.key ? 'oklch(0.90 0.10 205)' : 'oklch(0.75 0.012 255)'}`,
+    }));
+
+    const pending = s.packets.filter(p => p.status === 'pending').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const selected = s.packets.find(p => p.packet_id === s.selectedId) || null;
+
+    const pendingPackets = pending.map(p => ({
+      packet_id: p.packet_id, role: p.role, contributor: p.contributor, timeLabel: timeLabel(p.created_at),
+      onSelect: () => this.select(p.packet_id),
+      dotStyle: `width:8px; height:8px; border-radius:50%; background:${accentColor('pending')}`,
+      cardStyle: `text-align:left; cursor:pointer; display:flex; flex-direction:column; gap:6px; padding:12px 14px; border-radius:10px; border:1px solid ${s.selectedId === p.packet_id ? 'oklch(0.55 0.13 205)' : 'oklch(0.27 0.012 255)'}; background:${s.selectedId === p.packet_id ? 'oklch(0.24 0.05 205)' : 'oklch(0.195 0.012 255)'}`,
+    }));
+
+    const buildDetail = (p) => !p ? null : {
+      role: p.role, proposal: p.proposal, contributor: p.contributor, component: p.component, run: p.run,
+      parentLabel: p.parent_packet_id || 'none',
+      accent: accentColor(p.status),
+      statusLabel: (STATUS_META[p.status] || STATUS_META.pending).label,
+      statusPillStyle: pillStyle(p.status),
+      inputs: p.inputs.map(text => ({ text })),
+      assumptions: p.assumptions.map(text => ({ text })),
+      parameters: Object.entries(p.parameters).map(([key, value]) => ({ key, value: String(value) })),
+      rationale: p.rationale,
+      uncertainties: p.uncertainties.map(text => ({ text })),
+      hasDecision: !!p.decision,
+      decisionAction: p.decision ? (p.decision.action === 'accept' ? 'accepted' : p.decision.action === 'reject' ? 'rejected' : 'correction requested') : '',
+      decisionReviewer: p.decision ? p.decision.reviewer : '',
+      decisionNote: p.decision ? (p.decision.note || 'No note.') : '',
+    };
+
+    const historyAll = s.packets.filter(p => p.status !== 'pending').sort((a, b) => new Date(b.decision?.decided_at || 0) - new Date(a.decision?.decided_at || 0));
+    const historyFiltered = s.historyFilter === 'all' ? historyAll : historyAll.filter(p => p.status === s.historyFilter);
+    const filterDefs = [
+      { key: 'all', label: 'All' },
+      { key: 'accepted', label: 'Accepted' },
+      { key: 'correction_requested', label: 'Correction' },
+      { key: 'rejected', label: 'Rejected' },
+    ];
+
+    return {
+      tabs,
+      isAbout: s.screen === 'about',
+      aboutIframeRef: this.aboutIframeRef,
+      onAboutLoad: this.onAboutLoad,
+      aboutIframeStyle: `width:100%; height:${s.aboutHeight ? s.aboutHeight + 'px' : '100vh'}; border:none; display:block`,
+      isConnect: s.screen === 'connect',
+      isWorkbench: s.screen === 'workbench',
+      isHistory: s.screen === 'history',
+
+      connectionHint: s.mockMode ? 'Serving mock review data' : 'No live Chirp service detected',
+      connectionLabel: s.mockMode ? 'Mock' : 'Offline',
+      connectionColor: s.mockMode ? 'oklch(0.75 0.13 205)' : 'oklch(0.65 0.16 25)',
+      connectionDotStyle: `width:8px; height:8px; border-radius:50%; background:${s.mockMode ? 'oklch(0.75 0.13 205)' : 'oklch(0.65 0.16 25)'}`,
+      toggleMock: () => this.setState(st => ({ mockMode: !st.mockMode })),
+      mockToggleStyle: `width:44px; height:26px; border-radius:999px; border:1px solid oklch(0.34 0.012 255); background:${s.mockMode ? 'oklch(0.40 0.10 205)' : 'oklch(0.24 0.012 255)'}; cursor:pointer; padding:2px; display:flex; justify-content:${s.mockMode ? 'flex-end' : 'flex-start'}`,
+      mockKnobStyle: 'width:20px; height:20px; border-radius:50%; background:oklch(0.95 0.005 255)',
+      enterWorkbench: () => this.setScreen('workbench'),
+
+      pendingCount: pending.length + ' pending',
+      hasPending: pendingPackets.length > 0,
+      showEmptyQueue: pendingPackets.length === 0,
+      pendingPackets,
+
+      hasSelection: !!selected,
+      showEmptyDetail: !selected,
+      selected: buildDetail(selected),
+
+      reviewerName: s.reviewerName,
+      onReviewerChange: (e) => this.setState({ reviewerName: e.target.value }),
+      noteText: s.noteText,
+      onNoteChange: (e) => this.setState({ noteText: e.target.value }),
+      noteHint: selected && selected.status !== 'pending' ? '' : '(required for correction/reject)',
+      formError: s.formError,
+      acceptDecision: () => this.decide('accept'),
+      correctDecision: () => this.decide('request_correction'),
+      rejectDecision: () => this.decide('reject'),
+
+      historyFilters: filterDefs.map(f => ({
+        label: f.label,
+        onClick: () => this.setState({ historyFilter: f.key }),
+        style: `padding:8px 14px; border-radius:999px; font-size:12.5px; cursor:pointer; border:1px solid ${s.historyFilter === f.key ? 'oklch(0.55 0.13 205)' : 'oklch(0.30 0.012 255)'}; background:${s.historyFilter === f.key ? 'oklch(0.28 0.07 205)' : 'transparent'}; color:${s.historyFilter === f.key ? 'oklch(0.90 0.10 205)' : 'oklch(0.72 0.012 255)'}`,
+      })),
+      hasHistory: historyFiltered.length > 0,
+      showEmptyHistory: historyFiltered.length === 0,
+      historyPackets: historyFiltered.map(p => ({
+        packet_id: p.packet_id, proposal: p.proposal, contributor: p.contributor,
+        statusLabel: (STATUS_META[p.status] || STATUS_META.pending).label,
+        pillStyle: pillStyle(p.status),
+        decisionReviewer: p.decision.reviewer,
+        timeLabel: timeLabel(p.decision.decided_at),
+        hasNote: !!p.decision.note,
+        decisionNote: p.decision.note,
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>
